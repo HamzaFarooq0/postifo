@@ -1,9 +1,9 @@
-// LinkedLens Content Script - injected on linkedin.com pages
+// Postifo Content Script - injected on linkedin.com pages
 (function () {
   'use strict';
 
-  const { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle } = window.LinkedLensHelpers;
-  const SELECTORS = window.LinkedLensSelectors;
+  const { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle } = window.PostifoHelpers;
+  const SELECTORS = window.PostifoSelectors;
   const API_BASE = 'http://localhost:3001';
 
   let isTracking = false;
@@ -24,19 +24,19 @@
       return;
     }
     try { chrome.storage.local.get(keys, cb); } catch (e) {
-      console.warn('[LinkedLens] context invalidated', e);
+      console.warn('[Postifo] context invalidated', e);
       showStaleToast();
     }
   }
 
   function safeStorageSet(data, cb) {
     if (!isExtensionAlive()) return;
-    try { chrome.storage.local.set(data, cb); } catch (e) { console.warn('[LinkedLens] context invalidated', e); }
+    try { chrome.storage.local.set(data, cb); } catch (e) { console.warn('[Postifo] context invalidated', e); }
   }
 
   function safeSendMessage(msg) {
     if (!isExtensionAlive()) return;
-    try { chrome.runtime.sendMessage(msg); } catch (e) { console.warn('[LinkedLens] context invalidated', e); }
+    try { chrome.runtime.sendMessage(msg); } catch (e) { console.warn('[Postifo] context invalidated', e); }
   }
 
   function showStaleToast() {
@@ -51,7 +51,7 @@
       'border-radius:10px','box-shadow:0 4px 20px rgba(0,0,0,0.5)',
       'font-family:-apple-system,sans-serif','text-align:center','max-width:340px',
     ].join(';');
-    t.innerHTML = '⚠️ LinkedLens was updated — <strong>refresh this page</strong> (⌘R) to use it.';
+    t.innerHTML = '⚠️ Postifo was updated — <strong>refresh this page</strong> (⌘R) to use it.';
     document.body.appendChild(t);
   }
 
@@ -133,11 +133,11 @@
     if (!isProfilePage() && !isActivityPage()) return;
 
     trackButton = document.createElement('div');
-    trackButton.id = 'linkedlens-track-btn';
+    trackButton.id = 'postifo-track-btn';
 
     const isActivity = isActivityPage();
     trackButton.innerHTML = `
-      <button id="ll-btn" title="Track this creator with LinkedLens">
+      <button id="ll-btn" title="Track this creator with Postifo">
         <span class="ll-icon">🔍</span>
         <span class="ll-label">${isActivity ? 'Scrape All Posts' : 'Track Creator'}</span>
       </button>
@@ -161,7 +161,7 @@
 
     safeStorageGet(['ll_auth'], (data) => {
       if (!data.ll_auth?.token) {
-        showToast('Please log in to LinkedLens first (click the extension icon).', 'warning');
+        showToast('Please log in to Postifo first (click the extension icon).', 'warning');
         return;
       }
 
@@ -265,7 +265,7 @@
     overlay.innerHTML = `
       <div id="ll-config-modal">
         <div class="ll-config-header">
-          <img class="ll-config-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="LinkedLens" />
+          <img class="ll-config-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="Postifo" />
           <span class="ll-config-title">Configure Scrape</span>
           <span class="ll-config-creator">${profileData.name}</span>
         </div>
@@ -603,7 +603,7 @@
     banner.innerHTML = `
       <div class="ll-banner-icon">🔍</div>
       <div class="ll-banner-body">
-        <div class="ll-banner-title">LinkedLens is scraping <strong>${name}</strong> &nbsp;·&nbsp; <span style="color:#FFBE0B;font-weight:400">${rangeLabel}${limitLabel}</span></div>
+        <div class="ll-banner-title">Postifo is scraping <strong>${name}</strong> &nbsp;·&nbsp; <span style="color:#FFBE0B;font-weight:400">${rangeLabel}${limitLabel}</span></div>
         <div class="ll-banner-sub" id="ll-banner-sub">Starting… you can switch tabs freely</div>
       </div>
       <div class="ll-banner-pulse"></div>

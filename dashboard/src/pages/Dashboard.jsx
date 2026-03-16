@@ -171,7 +171,7 @@ export default function Dashboard() {
             <div className="text-5xl mb-4">🔍</div>
             <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>No creators tracked yet</h2>
             <p className="text-sm max-w-sm mx-auto mb-6 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Install the <strong>LinkedLens Chrome Extension</strong>, navigate to a LinkedIn creator profile, and click <strong>Track Creator</strong>.
+              Install the <strong>Postifo Chrome Extension</strong>, navigate to a LinkedIn creator profile, and click <strong>Track Creator</strong>.
             </p>
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"
               style={{ background: 'rgba(255,107,53,0.1)', color: 'var(--color-coral)', border: '1px solid rgba(255,107,53,0.2)' }}>

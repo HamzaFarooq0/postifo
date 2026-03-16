@@ -1,4 +1,4 @@
-# LinkedLens – LinkedIn Creator Analytics
+# Postifo – LinkedIn Creator Analytics
 
 Track and analyze LinkedIn creator posts from a Chrome Extension, synced to a central dashboard.
 
@@ -22,7 +22,7 @@ App/
 
 Edit `backend/.env`:
 ```
-DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/linkedlens"
+DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/postifo"
 JWT_SECRET="your-secret-key"
 ```
 
@@ -71,7 +71,7 @@ cd dashboard && npm run dev
 
 1. Open the dashboard at `http://localhost:5173`
 2. Register an account
-3. Click the LinkedLens extension icon and sign in with the same credentials
+3. Click the Postifo extension icon and sign in with the same credentials
 4. Navigate to any LinkedIn creator's profile (`linkedin.com/in/username`)
 5. Click the floating **Track Creator** button
 6. The extension scrolls & scrapes posts, then syncs to the backend

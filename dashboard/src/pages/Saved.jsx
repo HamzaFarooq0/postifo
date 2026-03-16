@@ -122,7 +122,7 @@ export default function Saved() {
     setExporting(true)
     try {
       const blob = await api.export.saved()
-      downloadBlob(blob, 'linkedlens-saved-posts.csv')
+      downloadBlob(blob, 'postifo-saved-posts.csv')
       toast('CSV downloaded!', 'success')
     } catch (e) { toast(e.message, 'error') }
     finally { setExporting(false) }

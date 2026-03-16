@@ -1,4 +1,4 @@
-// LinkedLens DOM Selectors - with extensive fallbacks for LinkedIn's changing DOM
+// Postifo DOM Selectors - with extensive fallbacks for LinkedIn's changing DOM
 const SELECTORS = {
   profile: {
     name: [
@@ -211,5 +211,5 @@ function getNameFromTitle() {
   return null;
 }
 
-window.LinkedLensSelectors = SELECTORS;
-window.LinkedLensHelpers = { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle };
+window.PostifoSelectors = SELECTORS;
+window.PostifoHelpers = { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle };

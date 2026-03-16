@@ -1,4 +1,4 @@
-// LinkedLens — SQLite schema (dev)
+// Postifo — SQLite schema (dev)
 generator client {
   provider = "prisma-client-js"
 }

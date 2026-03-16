@@ -109,7 +109,7 @@ export default function Settings() {
       <Section title="Chrome Extension">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>LinkedLens Extension</div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Postifo Extension</div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Scrapes LinkedIn creator posts and syncs them to your dashboard.
             </div>

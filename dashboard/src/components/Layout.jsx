@@ -52,9 +52,9 @@ export default function Layout() {
         {/* Logo */}
         <div className="px-5 h-16 flex items-center border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <Link to="/" className="flex items-center gap-2.5 select-none">
-            <img src="/logo.svg" alt="LinkedLens" className="w-8 h-8 rounded-lg" />
+            <img src="/logo.svg" alt="Postifo" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-              LinkedLens
+              Postifo
             </span>
           </Link>
         </div>

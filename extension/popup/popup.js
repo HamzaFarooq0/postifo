@@ -1,4 +1,4 @@
-// LinkedLens Popup v2 — Dark Brand Theme
+// Postifo Popup v2 — Dark Brand Theme
 'use strict';
 
 const API = 'http://localhost:3001';

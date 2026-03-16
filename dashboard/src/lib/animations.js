@@ -1,4 +1,4 @@
-// ─── LinkedLens Animation System ────────────────────────────────────────────
+// ─── Postifo Animation System ────────────────────────────────────────────
 // All reusable Framer Motion variants and constants
 
 export const DURATION = {

@@ -33,7 +33,7 @@ app.use(morgan('dev'));
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({
-  name: 'LinkedLens API',
+  name: 'Postifo API',
   status: 'running',
   version: '2.0.0',
   endpoints: [
@@ -66,5 +66,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`LinkedLens API v2 → http://localhost:${PORT}`);
+  console.log(`Postifo API v2 → http://localhost:${PORT}`);
 });

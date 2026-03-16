@@ -40,8 +40,8 @@ export default function Register() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 justify-center mb-8">
-          <img src="/logo.svg" alt="LinkedLens" className="w-10 h-10 rounded-xl" />
-          <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>LinkedLens</span>
+          <img src="/logo.svg" alt="Postifo" className="w-10 h-10 rounded-xl" />
+          <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Postifo</span>
         </div>
 
         <div className="card p-8 space-y-6">

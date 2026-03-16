@@ -1,7 +1,7 @@
 {
-  "name": "linkedlens-backend",
+  "name": "postifo-backend",
   "version": "1.0.0",
-  "description": "LinkedLens Backend API",
+  "description": "Postifo Backend API",
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",

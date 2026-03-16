@@ -41,7 +41,7 @@ router.get('/:creatorId/csv', authenticate, async (req, res, next) => {
     ];
 
     const csv = toCSV(posts, headers);
-    const filename = `linkedlens-${creator?.name?.replace(/\s+/g, '-') || req.params.creatorId}.csv`;
+    const filename = `postifo-${creator?.name?.replace(/\s+/g, '-') || req.params.creatorId}.csv`;
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -88,7 +88,7 @@ router.get('/saved/csv', authenticate, async (req, res, next) => {
 
     const csv = toCSV(rows, headers);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="linkedlens-saved-posts.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="postifo-saved-posts.csv"');
     res.send(csv);
   } catch (err) {
     next(err);

@@ -1,4 +1,4 @@
-// LinkedLens Background Service Worker (Manifest V3)
+// Postifo Background Service Worker (Manifest V3)
 const API_BASE = 'http://localhost:3001/api';
 
 // ─── Alarm for periodic sync ──────────────────────────────────────────
@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.notifications.create('ll_scrape_done_' + Date.now(), {
       type: 'basic',
       iconUrl: '../icons/icon128.png',
-      title: 'LinkedLens — Scrape Complete',
+      title: 'Postifo — Scrape Complete',
       message: `Collected ${message.count} posts from ${message.name}. Syncing to your dashboard now.`,
       priority: 1
     });
@@ -61,7 +61,7 @@ async function handleLogin(email, password) {
     }
     return { ok: false, error: data.error || 'Login failed' };
   } catch (e) {
-    return { ok: false, error: 'Cannot reach LinkedLens server. Is it running?' };
+    return { ok: false, error: 'Cannot reach Postifo server. Is it running?' };
   }
 }
 
@@ -142,7 +142,7 @@ async function syncQueueToAPI() {
         syncedIndexes.push(i);
       }
     } catch (err) {
-      console.error('[LinkedLens] Sync error:', err);
+      console.error('[Postifo] Sync error:', err);
     }
   }
 

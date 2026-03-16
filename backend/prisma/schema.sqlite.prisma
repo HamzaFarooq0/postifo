@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./linkedlens.db"
+  url      = "file:./postifo.db"
 }
 
 model User {

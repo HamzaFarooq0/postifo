@@ -49,8 +49,8 @@ export default function Login() {
 
         {/* Logo */}
         <div className="flex items-center gap-3 z-10">
-          <img src="/logo.svg" alt="LinkedLens" className="w-10 h-10 rounded-xl" />
-          <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>LinkedLens</span>
+          <img src="/logo.svg" alt="Postifo" className="w-10 h-10 rounded-xl" />
+          <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Postifo</span>
         </div>
 
         {/* Hero copy */}
@@ -75,7 +75,7 @@ export default function Login() {
             </div>
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>500+ agencies</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>already using LinkedLens</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>already using Postifo</div>
             </div>
           </div>
         </div>
@@ -98,8 +98,8 @@ export default function Login() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
-            <img src="/logo.svg" alt="LinkedLens" className="w-9 h-9 rounded-xl" />
-            <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>LinkedLens</span>
+            <img src="/logo.svg" alt="Postifo" className="w-9 h-9 rounded-xl" />
+            <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Postifo</span>
           </div>
 
           <div className="mb-8">
