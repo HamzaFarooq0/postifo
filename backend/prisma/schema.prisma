@@ -1,0 +1,166 @@
+// LinkedLens — SQLite schema (dev)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String?
+  plan        String   @default("free")   // free | starter | pro | agency
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  trackedCreators UserTrackedCreator[]
+  scrapeSessions  ScrapeSession[]
+  savedPosts      SavedPost[]
+  collections     Collection[]
+  waitlistEntries WaitlistEntry[]
+
+  @@map("users")
+}
+
+// ─── Creators (shared across all users) ──────────────────────────────────────
+model Creator {
+  id                 String    @id @default(cuid())
+  linkedinUrl        String    @unique
+  linkedinId         String?   @unique
+  name               String
+  headline           String?
+  avatarUrl          String?
+  followerCount      Int?
+  connectionCount    Int?
+  lastScrapedAt      DateTime?
+  totalPostsCollected Int      @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  posts     Post[]
+  trackedBy UserTrackedCreator[]
+
+  @@map("creators")
+}
+
+// ─── Posts (belong to creators, not users) ────────────────────────────────────
+model Post {
+  id            String    @id @default(cuid())
+  postUrl       String    @unique
+  creatorId     String
+  content       String?
+  reactions     Int       @default(0)
+  comments      Int       @default(0)
+  reposts       Int       @default(0)
+  impressions   Int?
+  postType      String?   // text | image | carousel | video | poll | article | newsletter | repost | other
+  mediaUrl      String?
+  rawDateString String?
+  postedAt      DateTime?
+  scrapedAt     DateTime  @default(now())
+  lastUpdatedAt DateTime  @updatedAt
+  sessionId     String?
+
+  creator       Creator        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  scrapeSession ScrapeSession? @relation(fields: [sessionId], references: [id])
+  savedBy       SavedPost[]
+  collections   CollectionPost[]
+
+  @@map("posts")
+}
+
+// ─── User <> Creator tracking (many-to-many) ──────────────────────────────────
+model UserTrackedCreator {
+  id               String   @id @default(cuid())
+  userId           String
+  creatorId        String
+  startedTrackingAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@map("user_tracked_creators")
+}
+
+// ─── Scrape sessions ─────────────────────────────────────────────────────────
+model ScrapeSession {
+  id          String    @id @default(cuid())
+  userId      String
+  creatorId   String?
+  status      String    @default("in_progress")  // in_progress | completed | failed
+  postsFound  Int       @default(0)
+  error       String?
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts Post[]
+
+  @@map("scrape_sessions")
+}
+
+// ─── Saved posts (user bookmarks) ────────────────────────────────────────────
+model SavedPost {
+  id      String   @id @default(cuid())
+  userId  String
+  postId  String
+  notes   String?
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("saved_posts")
+}
+
+// ─── Collections ─────────────────────────────────────────────────────────────
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  emoji       String   @default("📁")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts CollectionPost[]
+
+  @@map("collections")
+}
+
+// ─── Collection <> Posts ─────────────────────────────────────────────────────
+model CollectionPost {
+  id           String   @id @default(cuid())
+  collectionId String
+  postId       String
+  addedAt      DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, postId])
+  @@map("collection_posts")
+}
+
+// ─── Waitlist (for Coming Soon features) ─────────────────────────────────────
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  feature   String   // write-like-this | content-ideas | comparison | alerts | team
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([email, feature])
+  @@map("waitlist_entries")
+}

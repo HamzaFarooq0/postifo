@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LinkedLens</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ── Login view ── -->
+  <div id="view-login" class="view">
+    <div class="brand">
+      <img src="../icons/icon48.png" class="brand-icon" alt="LinkedLens" />
+      <div>
+        <div class="brand-name">LinkedLens</div>
+        <div class="brand-sub">Creator Analytics</div>
+      </div>
+    </div>
+
+    <form id="login-form" class="form">
+      <input id="email"    type="email"    placeholder="Email"    required class="input" autocomplete="email" />
+      <input id="password" type="password" placeholder="Password" required class="input" autocomplete="current-password" />
+      <div id="login-error" class="error" style="display:none"></div>
+      <button type="submit" class="btn btn-coral" id="login-btn">Sign In</button>
+    </form>
+    <p class="hint-text">No account? <a href="http://localhost:5173/register" target="_blank">Register free →</a></p>
+  </div>
+
+  <!-- ── Dashboard view ── -->
+  <div id="view-dashboard" class="view" style="display:none">
+
+    <!-- Header -->
+    <div class="top-bar">
+      <div class="brand-sm">
+        <img src="../icons/icon16.png" class="brand-icon-sm" alt="LinkedLens" />
+        <span class="brand-name-sm">LinkedLens</span>
+      </div>
+      <div class="top-right">
+        <div id="sync-dot" class="sync-dot sync-idle" title="Sync status"></div>
+        <button id="logout-btn" class="icon-btn" title="Logout">⇥</button>
+      </div>
+    </div>
+
+    <!-- User + plan -->
+    <div class="user-row">
+      <div class="user-avatar" id="user-avatar">LL</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Loading…</div>
+        <div class="user-plan" id="user-plan">free plan</div>
+      </div>
+    </div>
+
+    <!-- Sync status -->
+    <div id="sync-bar" class="sync-bar">
+      <span id="sync-text">●  Idle</span>
+      <button id="sync-btn" class="btn-link">Sync Now</button>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val" id="stat-creators">0</div>
+        <div class="stat-lbl">Creators</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-posts">0</div>
+        <div class="stat-lbl">Posts</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-pending">0</div>
+        <div class="stat-lbl">Pending</div>
+      </div>
+    </div>
+
+    <!-- Scrape progress card (hidden unless scraping) -->
+    <div id="scrape-card" class="scrape-card" style="display:none">
+      <div class="scrape-row">
+        <span class="scrape-pulse"></span>
+        <span id="scrape-creator" class="scrape-creator">Scraping…</span>
+      </div>
+      <div id="scrape-detail" class="scrape-detail">0 posts collected</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="scrape-progress" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Tracked creators list -->
+    <div id="creator-list" class="creator-list"></div>
+
+    <!-- Action buttons -->
+    <div class="actions">
+      <button id="open-dashboard" class="btn btn-coral btn-full">Open Dashboard ↗</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

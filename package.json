@@ -1,0 +1,23 @@
+{
+  "name": "linkedlens",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "dashboard",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=dashboard\"",
+    "build": "npm run build --workspace=dashboard",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.3.0",
+    "sharp": "^0.34.5"
+  }
+}

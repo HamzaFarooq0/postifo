@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trackedCreators UserTrackedCreator[]
+  scrapeSessions  ScrapeSession[]
+
+  @@map("users")
+}
+
+model Creator {
+  id              String   @id @default(cuid())
+  linkedinUrl     String   @unique
+  linkedinId      String?  @unique
+  name            String
+  headline        String?
+  avatarUrl       String?
+  followerCount   Int?
+  connectionCount Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  posts           Post[]
+  trackedBy       UserTrackedCreator[]
+
+  @@map("creators")
+}
+
+model Post {
+  id            String   @id @default(cuid())
+  postUrl       String   @unique
+  creatorId     String
+  content       String?  @db.Text
+  reactions     Int      @default(0)
+  comments      Int      @default(0)
+  reposts       Int      @default(0)
+  impressions   Int?
+  postType      String?
+  mediaUrl      String?
+  postedAt      DateTime?
+  scrapedAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  creator       Creator       @relation(fields: [creatorId], references: [id])
+  scrapeSession ScrapeSession? @relation(fields: [sessionId], references: [id])
+  sessionId     String?
+
+  @@map("posts")
+}
+
+model UserTrackedCreator {
+  id        String   @id @default(cuid())
+  userId    String
+  creatorId String
+  createdAt DateTime @default(now())
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@map("user_tracked_creators")
+}
+
+model ScrapeSession {
+  id         String   @id @default(cuid())
+  userId     String
+  creatorId  String?
+  status     String   @default("pending")
+  postsFound Int      @default(0)
+  error      String?
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts  Post[]
+
+  @@map("scrape_sessions")
+}
