@@ -22,9 +22,13 @@ app.use(cors({
     if (!origin) return callback(null, true);
     const allowed = [
       'http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173',
-      process.env.FRONTEND_URL, // e.g. https://postifo.vercel.app
+      process.env.FRONTEND_URL,
     ].filter(Boolean);
-    if (allowed.includes(origin) || origin.startsWith('chrome-extension://')) {
+    if (
+      allowed.includes(origin) ||
+      origin.startsWith('chrome-extension://') ||
+      origin.endsWith('.vercel.app')
+    ) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
