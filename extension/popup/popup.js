@@ -73,7 +73,7 @@ $('logout-btn').addEventListener('click', () => {
 
 // ─── Open dashboard ───────────────────────────────────────────────────────────
 $('open-dashboard').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://postifo-2u3cmvjm1-hamzafarooqs-projects-863e242d.vercel.app' });
+  chrome.tabs.create({ url: 'https://postifo.vercel.app' });
 });
 
 // ─── Sync now ────────────────────────────────────────────────────────────────
