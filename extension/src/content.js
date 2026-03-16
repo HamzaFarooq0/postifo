@@ -4,7 +4,7 @@
 
   const { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle } = window.PostifoHelpers;
   const SELECTORS = window.PostifoSelectors;
-  const API_BASE = 'http://localhost:3001';
+  const API_BASE = 'https://postifo-backend-production.up.railway.app';
 
   let isTracking = false;
   let trackButton = null;

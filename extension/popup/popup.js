@@ -1,7 +1,7 @@
 // Postifo Popup v2 — Dark Brand Theme
 'use strict';
 
-const API = 'http://localhost:3001';
+const API = 'https://postifo-backend-production.up.railway.app';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -73,7 +73,7 @@ $('logout-btn').addEventListener('click', () => {
 
 // ─── Open dashboard ───────────────────────────────────────────────────────────
 $('open-dashboard').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:5173' });
+  chrome.tabs.create({ url: 'https://postifo-2u3cmvjm1-hamzafarooqs-projects-863e242d.vercel.app' });
 });
 
 // ─── Sync now ────────────────────────────────────────────────────────────────

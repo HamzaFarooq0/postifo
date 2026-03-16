@@ -1,5 +1,5 @@
 // Postifo Background Service Worker (Manifest V3)
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'https://postifo-backend-production.up.railway.app/api';
 
 // ─── Alarm for periodic sync ──────────────────────────────────────────
 chrome.alarms.create('ll_sync', { periodInMinutes: 5 });
