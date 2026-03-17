@@ -100,10 +100,10 @@ function loadSyncStatus() {
     $('stat-pending').textContent = fmtNum(pending);
 
     if (scrape && !scrape.done) {
-      // Currently scraping
-      setSyncStatus('active', `⬆ Scraping: ${scrape.profile}`);
+      // Currently analysing
+      setSyncStatus('active', `⬆ Analysing: ${scrape.profile}`);
       show('scrape-card');
-      $('scrape-creator').textContent = scrape.profile || 'Scraping…';
+      $('scrape-creator').textContent = scrape.profile || 'Analysing…';
       $('scrape-detail').textContent  = `${scrape.count || 0} posts collected`;
       const pct = Math.min(((scrape.scrolls || 0) / 30) * 100, 95);
       $('scrape-progress').style.width = pct + '%';
@@ -134,7 +134,7 @@ async function loadCreators() {
 
   if (data.length === 0) {
     list.innerHTML = `<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">
-      Navigate to a LinkedIn creator profile and click <strong style="color:var(--coral)">Track Creator</strong>
+      Navigate to a LinkedIn creator profile and click <strong style="color:var(--coral)">Analyse Creator</strong>
     </div>`;
     return;
   }

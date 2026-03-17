@@ -1,7 +1,7 @@
 const SORT_OPTIONS = [
   { value: 'reactions', label: 'Reactions' },
   { value: 'comments',  label: 'Comments'  },
-  { value: 'scrapedAt', label: 'Scraped'   },
+  { value: 'scrapedAt', label: 'Analysed'  },
   { value: 'postedAt',  label: 'Posted'    },
 ]
 

@@ -24,7 +24,7 @@ const POST_TYPE_OPTIONS = [
 const SORT_OPTIONS = [
   { value: 'reactions', label: 'By Reactions'  },
   { value: 'comments',  label: 'By Comments'   },
-  { value: 'scrapedAt', label: 'By Scraped'    },
+  { value: 'scrapedAt', label: 'By Analysed'   },
   { value: 'postedAt',  label: 'By Post Date'  },
 ]
 

@@ -43,47 +43,46 @@
 /* ─── Tab Handle (always visible) ────────────────────────────────── */
 
 #postifo-panel-tab {
-  width: 30px;
-  background: #141414;
-  border: 1px solid #2a2a2a;
-  border-right: none;
-  border-radius: 10px 0 0 10px;
+  width: 40px;
+  background: #FF6B35;
+  border: none;
+  border-radius: 12px 0 0 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 14px 0;
+  gap: 10px;
+  padding: 18px 0;
   cursor: pointer;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+  box-shadow: -4px 0 20px rgba(255, 107, 53, 0.45);
   transition: background 0.15s;
   flex-shrink: 0;
-  min-height: 72px;
+  min-height: 90px;
   user-select: none;
 }
 
 #postifo-panel-tab:hover {
-  background: #1e1e1e;
+  background: #f05e28;
 }
 
 #postifo-tab-logo {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   flex-shrink: 0;
   pointer-events: none;
 }
 
 #postifo-tab-arrow {
-  font-size: 10px;
-  color: #555;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
   transition: color 0.15s;
   line-height: 1;
   pointer-events: none;
 }
 
 #postifo-panel.ll-panel--open #postifo-tab-arrow {
-  color: #FF6B35;
+  color: #fff;
 }
 
 /* Orange pulse dot — shown during scraping */
@@ -91,7 +90,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #FF6B35;
+  background: #fff;
   animation: ll-pulse 1.4s ease-in-out infinite;
   display: none;
   flex-shrink: 0;
@@ -434,17 +433,19 @@
 
 .ll-panel-progress {
   background: #1a1a1a;
-  border: 1px solid rgba(255, 107, 53, 0.2);
+  border: 1px solid rgba(255, 107, 53, 0.25);
   border-radius: 10px;
-  padding: 12px;
+  padding: 14px 12px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .ll-panel-progress-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 7px;
 }
 
 .ll-panel-progress-dot {
@@ -460,13 +461,14 @@
   font-size: 11px;
   font-weight: 600;
   color: #FF6B35;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .ll-panel-progress-bar-track {
-  height: 3px;
+  height: 4px;
   background: #2a2a2a;
   border-radius: 2px;
-  margin-bottom: 6px;
   overflow: hidden;
 }
 
@@ -474,20 +476,193 @@
   height: 100%;
   background: linear-gradient(90deg, #FF6B35, #FFBE0B);
   border-radius: 2px;
-  transition: width 0.5s ease;
+  transition: width 0.6s ease;
 }
 
-#ll-progress-sub {
+/* Big post count display */
+.ll-progress-big-count {
+  font-size: 36px;
+  font-weight: 800;
+  color: #F5F5F5;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.ll-progress-big-label {
   font-size: 11px;
-  color: #737373;
+  color: #555;
+  margin-top: 2px;
+}
+
+/* 3-column stats grid */
+.ll-progress-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.ll-progress-stat-box {
+  background: #111;
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.ll-progress-stat-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: #F5F5F5;
+  line-height: 1;
+}
+
+.ll-progress-stat-key {
+  font-size: 9px;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
+}
+
+/* Target row */
+.ll-progress-target-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  border-top: 1px solid #242424;
+  padding-top: 8px;
+}
+
+.ll-progress-target-label {
+  font-size: 10px;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.ll-progress-target-val {
+  font-size: 11px;
+  color: #A3A3A3;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ll-progress-hint {
+  font-size: 10px;
+  color: #333;
+  text-align: center;
+}
+
+/* ─── Post-scrape Done Card ───────────────────────────────────────── */
+
+.ll-panel-done {
+  background: rgba(5, 118, 66, 0.08);
+  border: 1px solid rgba(5, 118, 66, 0.25);
+  border-radius: 10px;
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.ll-done-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ll-done-check {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #057642;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ll-done-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ll-done-count-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #F5F5F5;
+}
+
+.ll-done-count-text strong {
+  color: #2ecc71;
+}
+
+.ll-done-sub {
+  font-size: 11px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.ll-done-cta {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #555;
+  text-align: center;
+  border-top: 1px solid rgba(5, 118, 66, 0.12);
+  padding-top: 8px;
   line-height: 1.4;
+}
+
+.ll-done-cta strong {
+  color: #FF6B35;
+}
+
+/* ─── Detection Risk Bar ──────────────────────────────────────────── */
+
+#ll-risk-bar {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  border-bottom: 1px solid transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+#ll-risk-bar.ll-risk-bar--medium {
+  background: rgba(214, 137, 16, 0.1);
+  border-bottom-color: rgba(214, 137, 16, 0.2);
+  color: #d68910;
+}
+
+#ll-risk-bar.ll-risk-bar--high {
+  background: rgba(192, 57, 43, 0.1);
+  border-bottom-color: rgba(192, 57, 43, 0.2);
+  color: #e74c3c;
+}
+
+.ll-risk-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ll-risk-text {
+  flex: 1;
+  line-height: 1.3;
 }
 
 /* ─── Panel Footer ────────────────────────────────────────────────── */
 
 .ll-panel-footer {
   border-top: 1px solid #1e1e1e;
-  padding: 10px 12px;
+  padding: 12px;
   flex-shrink: 0;
 }
 
@@ -495,24 +670,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px;
-  border-radius: 8px;
-  border: 1px solid #242424;
-  background: transparent;
-  color: #555;
-  font-size: 11px;
-  font-weight: 500;
+  gap: 6px;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255, 107, 53, 0.12);
+  color: #FF6B35;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ll-panel-dashboard-link:hover {
-  border-color: #3a3a3a;
-  color: #A3A3A3;
-  background: #1a1a1a;
+  background: rgba(255, 107, 53, 0.22);
+  color: #ff8255;
 }
 
 /* ─── Scrape info hint (existing data notice) ─────────────────────── */

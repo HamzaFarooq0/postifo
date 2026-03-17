@@ -22,7 +22,7 @@ const POST_TYPE_OPTIONS = [
 const SORT_OPTIONS = [
   { value: 'reactions', label: 'By Reactions'    },
   { value: 'comments',  label: 'By Comments'     },
-  { value: 'scrapedAt', label: 'By Date Scraped' },
+  { value: 'scrapedAt', label: 'By Date Analysed' },
 ]
 
 function PostCard({ post, savedIds, onSave }) {

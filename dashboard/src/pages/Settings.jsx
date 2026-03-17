@@ -111,7 +111,7 @@ export default function Settings() {
           <div>
             <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Postifo Extension</div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Scrapes LinkedIn creator posts and syncs them to your dashboard.
+              Analyses LinkedIn creator posts and syncs them to your dashboard.
             </div>
           </div>
           <div className="flex items-center gap-1.5">

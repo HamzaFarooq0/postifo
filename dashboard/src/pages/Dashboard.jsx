@@ -394,7 +394,7 @@ export default function Dashboard() {
                       No creators found for "{query}"
                     </p>
                     <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
-                      This creator isn't in our database yet. Scrape them with the extension.
+                      This creator isn't in our database yet. Analyse them with the extension.
                     </p>
                     <div className="flex flex-col gap-2.5 items-start max-w-xs mx-auto text-sm" style={{ color: 'var(--text-secondary)' }}>
                       {[
@@ -463,7 +463,7 @@ export default function Dashboard() {
             </h2>
             <p className="text-sm max-w-sm mx-auto mb-8 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               Search for a creator above to see if they're already in our database,
-              or install the extension to scrape someone new.
+              or install the extension to analyse someone new.
             </p>
             <div className="flex flex-col gap-3 items-center">
               {[

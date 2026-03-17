@@ -421,7 +421,7 @@ export default function CreatorAnalysis() {
               ⚡ Limited data — only {posts.length} posts analyzed
             </p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              For accurate insights, load 50+ posts. Open their LinkedIn activity page to scrape more.
+              For accurate insights, load 50+ posts. Open their LinkedIn activity page to analyse more.
             </p>
           </div>
           {creator.linkedinUrl && (

@@ -19,6 +19,11 @@
   let scrapeMaxPosts = 0;
   let scrapeCutoffDate = null;
 
+  // Session-level risk tracking (accumulates across multiple scrapes per page load)
+  let sessionPostsTotal = 0;
+  let sessionProfilesSet = new Set();
+  let sessionStart = null;
+
   // Guard: if the extension context is invalidated (e.g. after reload),
   // stop gracefully instead of throwing uncaught errors.
   function isExtensionAlive() {
@@ -214,7 +219,7 @@
     sidePanel.style.top = savedTop + '%';
 
     const isActivity = isActivityPage();
-    const btnLabel = isActivity ? 'Scrape Posts' : 'Track Creator';
+    const btnLabel = 'Analyse Creator';
 
     sidePanel.innerHTML = `
       <div id="postifo-panel-body-wrap">
@@ -224,6 +229,7 @@
             <span class="ll-panel-title">Postifo</span>
             <button id="ll-panel-close-btn" title="Close panel">✕</button>
           </div>
+          <div id="ll-risk-bar"></div>
           <div id="ll-panel-content">
             <div class="ll-panel-creator" id="ll-panel-creator-card" style="display:none"></div>
             <button id="ll-btn">
@@ -232,10 +238,11 @@
             </button>
             <button id="ll-stop-btn" style="display:none">
               <span class="ll-icon">⏹</span>
-              <span class="ll-label">Stop Scraping</span>
+              <span class="ll-label">Stop Analysing</span>
             </button>
             <div id="ll-panel-config-section" style="display:none"></div>
             <div id="ll-panel-progress-section" style="display:none"></div>
+            <div id="ll-panel-done-section" style="display:none"></div>
           </div>
           <div class="ll-panel-footer">
             <a class="ll-panel-dashboard-link" href="${DASHBOARD_URL}" target="_blank" rel="noopener">
@@ -403,7 +410,7 @@
 
     configSection.innerHTML = `
       <div class="ll-panel-config">
-        <div class="ll-panel-config-title">Scrape Options</div>
+        <div class="ll-panel-config-title">Analysis Options</div>
 
         ${lastScraped ? `
           <div class="ll-scrape-info-box">
@@ -420,7 +427,7 @@
 
         ${lastScraped ? `
         <div id="ll-cfg-new" class="ll-config-section">
-          <div class="ll-config-hint">Only posts after <strong style="color:#FF6B35">${newPostsLabel}</strong> will be scraped.</div>
+          <div class="ll-config-hint">Only posts after <strong style="color:#FF6B35">${newPostsLabel}</strong> will be analysed.</div>
         </div>` : ''}
 
         <div id="ll-cfg-time" ${lastScraped ? 'style="display:none"' : ''}>
@@ -441,7 +448,7 @@
           <div class="ll-config-hint">Stops once this many posts are collected.</div>
         </div>
 
-        <button class="ll-config-start" id="ll-config-start">Start Scraping →</button>
+        <button class="ll-config-start" id="ll-config-start">Start Analysing →</button>
         <span class="ll-config-cancel-link" id="ll-config-cancel">Cancel</span>
       </div>
     `;
@@ -484,7 +491,7 @@
     document.getElementById('ll-config-cancel').addEventListener('click', () => {
       configSection.style.display = 'none';
       const btn = document.getElementById('ll-btn');
-      if (btn) { btn.disabled = false; btn.querySelector('.ll-label').textContent = isActivityPage() ? 'Scrape Posts' : 'Track Creator'; }
+      if (btn) { btn.disabled = false; btn.querySelector('.ll-label').textContent = 'Analyse Creator'; }
     });
 
     document.getElementById('ll-config-start').addEventListener('click', () => {
@@ -520,6 +527,7 @@
   }
 
   function showPanelProgress(name, cutoffDate, maxPosts) {
+    hidePanelDone();
     const section = document.getElementById('ll-panel-progress-section');
     if (!section) return;
 
@@ -538,7 +546,7 @@
       <div class="ll-panel-progress">
         <div class="ll-panel-progress-header">
           <div class="ll-panel-progress-dot"></div>
-          <span class="ll-panel-progress-label">Scraping in progress</span>
+          <span class="ll-panel-progress-label">Analysing posts…</span>
         </div>
 
         <div class="ll-panel-progress-bar-track">
@@ -568,7 +576,7 @@
           <span class="ll-progress-target-val" id="ll-progress-target">${targetLabel}</span>
         </div>
 
-        <div class="ll-progress-hint">You can switch tabs — scraping continues</div>
+        <div class="ll-progress-hint">You can switch tabs — analysis continues in the background</div>
       </div>
     `;
     section.style.display = 'block';
@@ -618,6 +626,65 @@
     scrapeStartTime = null;
   }
 
+  // ─── Post-scrape done card ────────────────────────────────────────
+
+  function showPanelDone(count) {
+    const section = document.getElementById('ll-panel-done-section');
+    if (!section) return;
+    const noun = count === 1 ? 'post' : 'posts';
+    section.innerHTML = `
+      <div class="ll-panel-done">
+        <div class="ll-done-row">
+          <div class="ll-done-check">✓</div>
+          <div class="ll-done-info">
+            <div class="ll-done-count-text"><strong>${count.toLocaleString()}</strong> ${noun} collected</div>
+            <div class="ll-done-sub">Synced to your dashboard</div>
+          </div>
+        </div>
+        <div class="ll-done-cta">Tap <strong>Analyse More →</strong> above to run another round</div>
+      </div>
+    `;
+    section.style.display = 'block';
+    requestAnimationFrame(() => {
+      const content = document.getElementById('ll-panel-content');
+      if (content) content.scrollTop = content.scrollHeight;
+    });
+  }
+
+  function hidePanelDone() {
+    const section = document.getElementById('ll-panel-done-section');
+    if (section) section.style.display = 'none';
+  }
+
+  // ─── Detection risk bar ───────────────────────────────────────────
+
+  function getRiskLevel() {
+    if (!sessionStart || sessionPostsTotal === 0) return 'low';
+    const mins = (Date.now() - sessionStart) / 60000;
+    if (sessionPostsTotal >= 150 || sessionProfilesSet.size >= 3 || mins >= 45) return 'high';
+    if (sessionPostsTotal >= 50  || sessionProfilesSet.size >= 2 || mins >= 20) return 'medium';
+    return 'low';
+  }
+
+  function updateRiskBar() {
+    const bar = document.getElementById('ll-risk-bar');
+    if (!bar) return;
+    const level = getRiskLevel();
+    if (level === 'low') {
+      bar.style.display = 'none';
+      bar.className = '';
+      return;
+    }
+    bar.style.display = 'flex';
+    if (level === 'medium') {
+      bar.className = 'll-risk-bar--medium';
+      bar.innerHTML = '<span class="ll-risk-icon">⚠</span><span class="ll-risk-text">Medium detection risk — consider a short break</span>';
+    } else {
+      bar.className = 'll-risk-bar--high';
+      bar.innerHTML = '<span class="ll-risk-icon">🔴</span><span class="ll-risk-text">High risk — LinkedIn may flag this. Pause your analysis.</span>';
+    }
+  }
+
   // Backward-compat aliases used by startScrollScraping
   function showScrapeBanner(name, cutoffDate, maxPosts) { showPanelProgress(name, cutoffDate, maxPosts); }
   function updateScrapeBanner(count, scrolls, maxScrolls) { updatePanelProgress(count, scrolls, maxScrolls); }
@@ -644,7 +711,7 @@
         btn.querySelector('.ll-label').textContent = 'Loading…';
         showScrapeConfig(profileData, null, (config) => {
           isTracking = true;
-          btn.querySelector('.ll-label').textContent = 'Starting…';
+          btn.querySelector('.ll-label').textContent = 'Preparing…';
           safeStorageGet(['ll_pending_creators'], (d) => {
             const pending = d.ll_pending_creators || [];
             if (!pending.find(c => c.linkedinUrl === profileData.linkedinUrl)) {
@@ -671,7 +738,7 @@
           showScrapeConfig(profileData, scrapeInfo, (config) => {
             isTracking = true;
             btn.disabled = true;
-            btn.querySelector('.ll-label').textContent = 'Scraping…';
+            btn.querySelector('.ll-label').textContent = 'Analysing…';
             const stopBtn = document.getElementById('ll-stop-btn');
             if (stopBtn) stopBtn.style.display = 'flex';
             safeStorageGet(['ll_pending_creators'], (d) => {
@@ -698,7 +765,7 @@
 
   function handleStopClick() {
     stopRequested = true;
-    showToast('Stopping scrape — saving collected posts…', 'warning');
+    showToast('Stopping — saving collected posts…', 'warning');
     const stopBtn = document.getElementById('ll-stop-btn');
     if (stopBtn) stopBtn.style.display = 'none';
   }
@@ -722,10 +789,10 @@
       try {
         chrome.storage.local.remove('ll_pending_scrape', () => {
           const resolvedConfig = config || { cutoffDate: null, maxPosts: 0 };
-          showToast(`Auto-scraping posts from ${profileData.name}…`, 'success');
+          showToast(`Auto-analysing posts from ${profileData.name}…`, 'success');
           isTracking = true;
           const btn = document.getElementById('ll-btn');
-          if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Scraping…'; }
+          if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Analysing…'; }
           const stopBtn = document.getElementById('ll-stop-btn');
           if (stopBtn) stopBtn.style.display = 'flex';
           startScrollScraping(profileData, resolvedConfig);
@@ -742,6 +809,7 @@
     let scrollCount = 0;
     const MAX_SCROLLS = 200;
 
+    if (!sessionStart) sessionStart = Date.now();
     if (!silent) showScrapeBanner(profileData.name, cutoffDate, maxPosts);
     else showSilentRefreshBar(profileData.name);
 
@@ -773,7 +841,7 @@
       if (!silent) updateScrapeBanner(collectedPosts.length, scrollCount, MAX_SCROLLS);
       else updateSilentRefreshBar(collectedPosts.length);
       const btn = document.getElementById('ll-btn');
-      if (btn) btn.querySelector('.ll-label').textContent = `Scraping… (${collectedPosts.length})`;
+      if (btn) btn.querySelector('.ll-label').textContent = `Analysing… (${collectedPosts.length})`;
 
       return hitCutoff || limitHit;
     }
@@ -882,11 +950,16 @@
         ll_post_queue: queue,
         ll_scrape_status: { count: posts.length, scrolls: 30, profile: profileData.name, done: true }
       }, () => {
+        // Accumulate session totals for risk tracking
+        sessionPostsTotal += posts.length;
+        if (profileData?.linkedinUrl) sessionProfilesSet.add(profileData.linkedinUrl);
+
         if (isSilent) removeSilentRefreshBar(); else removeScrapeBanner();
         if (isSilent) {
           if (posts.length > 0) showToast(`Refreshed: +${posts.length} new posts from ${profileData.name}!`, 'success');
         } else {
           showToast(`Collected ${posts.length} posts from ${profileData.name}! Syncing…`, 'success');
+          showPanelDone(posts.length);
         }
         safeSendMessage({ type: 'SYNC_NOW' });
         if (!isSilent || posts.length > 0) {
@@ -898,11 +971,14 @@
         if (btn) {
           btn.disabled = false;
           btn.querySelector('.ll-label').textContent = isSilent
-            ? (posts.length > 0 ? `Done ✓ (+${posts.length})` : 'Scrape Posts')
-            : `Done ✓ (${posts.length} posts)`;
+            ? (posts.length > 0 ? `Done ✓ (+${posts.length})` : 'Analyse Creator')
+            : 'Analyse More →';
         }
         const stopBtn = document.getElementById('ll-stop-btn');
         if (stopBtn) stopBtn.style.display = 'none';
+
+        // Update risk warning bar
+        updateRiskBar();
       });
     });
   }
@@ -986,7 +1062,7 @@
 
             isTracking = true;
             const btn = document.getElementById('ll-btn');
-            if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Refreshing…'; }
+            if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Refreshing…'; } // silent auto-refresh
             const stopBtn = document.getElementById('ll-stop-btn');
             if (stopBtn) stopBtn.style.display = 'flex';
 
