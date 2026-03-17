@@ -219,6 +219,9 @@ export default function Dashboard() {
   // Global platform stats
   const [globalStats, setGlobalStats] = useState(null)
 
+  // Explore: global creator DB discovery
+  const [exploreCreators, setExploreCreators] = useState([])
+
   // Search
   const [query,         setQuery]         = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -228,6 +231,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.stats.global().then(setGlobalStats).catch(() => {})
+    api.creators.explore(12).then(setExploreCreators).catch(() => {})
     api.creators.syncTracked()
       .catch(() => {})
       .then(() => api.creators.list())
@@ -266,9 +270,10 @@ export default function Dashboard() {
       avatarUrl:    creator.avatarUrl,
       followerCount: creator.followerCount,
     })
-    // Refresh tracked list
+    // Refresh tracked list + mark as tracked in explore list
     const updated = await api.creators.list()
     setCreators(updated)
+    setExploreCreators(prev => prev.map(c => c.id === creator.id ? { ...c, isTracked: true } : c))
     toast(`Now tracking ${creator.name}`, 'success')
   }
 
@@ -492,6 +497,27 @@ export default function Dashboard() {
           </motion.div>
         )}
       </div>
+
+      {/* ── Explore Creators (global DB discovery) ── */}
+      {exploreCreators.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="section-title">Explore Creators</p>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Popular in the database — click <strong style={{ color: 'var(--color-coral)' }}>+ Track</strong> to add
+            </span>
+          </div>
+          <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-surface)' }}>
+            <div className="p-2 space-y-1">
+              <AnimatePresence>
+                {exploreCreators.map(c => (
+                  <SearchResultCard key={c.id} creator={c} onTrack={handleTrack} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Library CTA ── */}
       {creators.length > 0 && !loading && (

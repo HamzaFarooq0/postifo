@@ -1031,6 +1031,9 @@
   // ─── Silent auto-refresh ───────────────────────────────────────────
   function checkAutoRefresh() {
     if (!isActivityPage() || isTracking) return;
+    // Skip auto-refresh if session risk is medium or high — don't pile on
+    if (getRiskLevel() !== 'low') return;
+
     const profileUrl = getProfileUrlFromCurrent();
     if (!profileUrl) return;
 
@@ -1044,15 +1047,41 @@
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
         .then(info => {
-          if (!info?.lastScrapedAt) return;
-          const staleDays = (Date.now() - new Date(info.lastScrapedAt).getTime()) / 86400000;
-          if (staleDays < 7) return;
+          if (!info) return;
           if (isTracking) return;
+          // Re-check risk here too since the fetch is async
+          if (getRiskLevel() !== 'low') return;
 
           const profileData = getProfileData();
           if (!profileData.linkedinUrl) return;
           if (!profileData.name) profileData.name = profileData.linkedinId || 'creator';
 
+          if (info.isNew) {
+            // Brand-new creator — seed with up to 25 posts (90-day window)
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+
+            safeStorageGet(['ll_pending_creators'], (d) => {
+              const pending = d.ll_pending_creators || [];
+              if (!pending.find(c => c.linkedinUrl === profileData.linkedinUrl)) {
+                pending.push({ ...profileData, queuedAt: Date.now() });
+                safeStorageSet({ ll_pending_creators: pending });
+              }
+
+              isTracking = true;
+              const btn = document.getElementById('ll-btn');
+              if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Seeding…'; }
+              const stopBtn = document.getElementById('ll-stop-btn');
+              if (stopBtn) stopBtn.style.display = 'flex';
+
+              startScrollScraping(profileData, { cutoffDate: cutoff, maxPosts: 25 }, true);
+            });
+            return;
+          }
+
+          if (!info.needsRefresh) return;
+
+          // Known creator — refresh new posts since last scrape
           safeStorageGet(['ll_pending_creators'], (d) => {
             const pending = d.ll_pending_creators || [];
             if (!pending.find(c => c.linkedinUrl === profileData.linkedinUrl)) {
@@ -1062,7 +1091,7 @@
 
             isTracking = true;
             const btn = document.getElementById('ll-btn');
-            if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Refreshing…'; } // silent auto-refresh
+            if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Refreshing…'; }
             const stopBtn = document.getElementById('ll-stop-btn');
             if (stopBtn) stopBtn.style.display = 'flex';
 

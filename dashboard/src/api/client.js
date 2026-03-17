@@ -47,6 +47,7 @@ export const api = {
     track:       (body) => request('/api/creators/track', { method: 'POST', body: JSON.stringify(body) }),
     untrack:     (id)   => request(`/api/creators/${id}/untrack`, { method: 'DELETE' }),
     syncTracked: ()     => request('/api/creators/sync-tracked', { method: 'POST' }),
+    explore:     (limit = 12) => request(`/api/creators/explore?limit=${limit}`),
   },
 
   // ─── Posts ──────────────────────────────────────────────────────────

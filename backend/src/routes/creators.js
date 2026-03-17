@@ -168,21 +168,70 @@ router.get('/search', authenticate, async (req, res, next) => {
   }
 });
 
-// GET /api/creators/scrape-info?linkedinUrl=xxx — returns lastScrapedAt for incremental scraping
+// GET /api/creators/scrape-info?linkedinUrl=xxx — returns lastScrapedAt + refresh flags
 router.get('/scrape-info', authenticate, async (req, res, next) => {
   try {
     const { linkedinUrl } = req.query;
-    if (!linkedinUrl) return res.json({ lastScrapedAt: null, postCount: 0 });
+    if (!linkedinUrl) return res.json({ lastScrapedAt: null, postCount: 0, isNew: true, needsRefresh: false });
 
     const creator = await prisma.creator.findUnique({
       where: { linkedinUrl },
       select: { lastScrapedAt: true, totalPostsCollected: true }
     });
 
+    if (!creator) {
+      return res.json({ lastScrapedAt: null, postCount: 0, isNew: true, needsRefresh: false });
+    }
+
+    const staleDays = creator.lastScrapedAt
+      ? (Date.now() - new Date(creator.lastScrapedAt).getTime()) / 86400000
+      : Infinity;
+
     res.json({
-      lastScrapedAt: creator?.lastScrapedAt || null,
-      postCount:     creator?.totalPostsCollected || 0
+      lastScrapedAt: creator.lastScrapedAt || null,
+      postCount:     creator.totalPostsCollected || 0,
+      isNew:         false,
+      needsRefresh:  staleDays >= 7,
     });
+  } catch (err) { next(err); }
+});
+
+// GET /api/creators/explore?limit=N — browse global creator DB (all users)
+router.get('/explore', authenticate, async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 12, 50);
+
+    const creators = await prisma.creator.findMany({
+      where: { posts: { some: {} } },
+      orderBy: { totalPostsCollected: 'desc' },
+      take: limit,
+      include: {
+        _count: { select: { posts: true, trackedBy: true } },
+        posts:  { orderBy: { scrapedAt: 'desc' }, take: 1, select: { scrapedAt: true } },
+      },
+    });
+
+    // Check which ones the requesting user already tracks
+    const ids = creators.map(c => c.id);
+    const trackedSet = new Set(
+      (await prisma.userTrackedCreator.findMany({
+        where: { userId: req.userId, creatorId: { in: ids } },
+        select: { creatorId: true },
+      })).map(t => t.creatorId)
+    );
+
+    res.json(creators.map(c => ({
+      id:            c.id,
+      name:          c.name,
+      headline:      c.headline,
+      avatarUrl:     c.avatarUrl,
+      linkedinUrl:   c.linkedinUrl,
+      followerCount: c.followerCount,
+      postCount:     c._count.posts,
+      trackerCount:  c._count.trackedBy,
+      lastScrapedAt: c.posts[0]?.scrapedAt || c.lastScrapedAt,
+      isTracked:     trackedSet.has(c.id),
+    })));
   } catch (err) { next(err); }
 });
 
