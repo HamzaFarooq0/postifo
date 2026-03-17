@@ -103,35 +103,96 @@
   }
 
   // ─── Post Extraction ─────────────────────────────────────────────────
+  // Resilient approach: use data-urn (LinkedIn content IDs), aria-label
+  // (accessibility requirement), time[datetime], span[dir="ltr"], and
+  // href patterns — all functional attributes that LinkedIn can't change.
+
+  function findPostContainers() {
+    // Primary: data-urn / data-id containing LinkedIn activity URNs
+    let found = Array.from(document.querySelectorAll(
+      '[data-urn*="urn:li:activity"], [data-id*="urn:li:activity"], [data-urn*="ugcPost"], [data-id*="ugcPost"]'
+    ));
+
+    // Remove any element that is a descendant of another found element
+    // (avoid double-counting nested wrappers)
+    found = found.filter(el => !found.some(other => other !== el && other.contains(el)));
+
+    if (found.length > 0) return found;
+
+    // Fallback: class-based (works until LinkedIn changes them)
+    return queryAll(document, SELECTORS.posts.containers);
+  }
+
+  function extractPostContent(container) {
+    // Collect all span[dir="ltr"] text nodes — LinkedIn always sets this
+    // for user-generated content to handle RTL/LTR mixed content.
+    const spans = Array.from(container.querySelectorAll('span[dir="ltr"], span[dir="rtl"]'));
+
+    if (spans.length === 0) {
+      // Very old fallback: any text-heavy div
+      const divs = Array.from(container.querySelectorAll('div[class*="text"], div[class*="commentary"]'));
+      return divs.map(d => d.innerText?.trim() || '').sort((a, b) => b.length - a.length)[0] || '';
+    }
+
+    // The main post text is the longest span — not the actor name or subtext
+    // Filter spans with meaningful content (>20 chars to skip names/labels)
+    const meaningful = spans
+      .map(s => s.innerText?.trim() || '')
+      .filter(t => t.length > 20)
+      .sort((a, b) => b.length - a.length);
+
+    return meaningful[0] || spans.map(s => s.innerText?.trim()).join(' ').trim();
+  }
+
+  function extractCount(container, ariaTerms) {
+    // Try aria-label first (accessibility requirement, very stable)
+    for (const term of ariaTerms) {
+      const el = container.querySelector(`button[aria-label*="${term}" i], a[aria-label*="${term}" i], span[aria-label*="${term}" i]`);
+      if (el) {
+        const fromLabel = parseCount(el.getAttribute('aria-label') || '');
+        if (fromLabel > 0) return fromLabel;
+        const fromText = parseCount(el.innerText || '');
+        if (fromText > 0) return fromText;
+      }
+    }
+    return 0;
+  }
+
   function extractPosts() {
-    const postContainers = queryAll(document, SELECTORS.posts.containers);
+    const containers = findPostContainers();
     const posts = [];
 
-    for (const container of postContainers) {
+    for (const container of containers) {
+      // URL — from link href (URL patterns are very stable)
       const postUrl = extractPostUrl(container);
       if (!postUrl) continue;
 
-      const contentEl = queryFirst(container, SELECTORS.posts.content);
-      const content = contentEl?.innerText?.trim() || '';
+      // Content — via span[dir] attribute (functional, not styling)
+      const content = extractPostContent(container);
 
-      const reactionsEl = queryFirst(container, SELECTORS.posts.reactions);
-      const reactions = parseCount(reactionsEl?.innerText || reactionsEl?.getAttribute('aria-label') || '0');
+      // Engagement — via aria-label on buttons (accessibility requirement)
+      const reactions = extractCount(container, ['reaction', 'like', 'celebrate', 'support', 'love']);
+      const comments  = extractCount(container, ['comment']);
+      const reposts   = extractCount(container, ['repost', 'reshare']);
 
-      const commentsEl = queryFirst(container, SELECTORS.posts.comments);
-      const comments = parseCount(commentsEl?.innerText || commentsEl?.getAttribute('aria-label') || '0');
-
-      const repostsEl = queryFirst(container, SELECTORS.posts.reposts);
-      const reposts = parseCount(repostsEl?.innerText || repostsEl?.getAttribute('aria-label') || '0');
-
-      const timeEl = queryFirst(container, SELECTORS.posts.timestamp);
+      // Timestamp — time[datetime] is standard HTML
+      const timeEl  = container.querySelector('time[datetime]');
       const postedAt = timeEl?.getAttribute('datetime') || null;
 
-      const mediaEl = queryFirst(container, SELECTORS.posts.mediaImage);
+      // Media — look for images from LinkedIn's CDN domain
+      const mediaEl  = container.querySelector('img[src*="media.licdn.com"], img[src*="media-exp"]') ||
+                       queryFirst(container, SELECTORS.posts.mediaImage);
       const mediaUrl = mediaEl?.src || null;
-      const postType = mediaEl ? 'image' : (content.length > 0 ? 'text' : 'other');
+      const postType = mediaUrl ? 'image' : (content.length > 0 ? 'text' : 'other');
 
-      posts.push({ postUrl, content: content.substring(0, 3000), reactions, comments, reposts, postedAt, mediaUrl, postType });
+      posts.push({
+        postUrl,
+        content: content.substring(0, 3000),
+        reactions, comments, reposts,
+        postedAt, mediaUrl, postType
+      });
     }
+
     return posts;
   }
 

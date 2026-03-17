@@ -1,139 +1,84 @@
-// Postifo DOM Selectors - with extensive fallbacks for LinkedIn's changing DOM
+// Postifo DOM Selectors
+// Strategy: prefer data-*, aria-*, href patterns, and structural HTML attributes
+// that LinkedIn CANNOT change (they're functional, not styling).
+// CSS class names are hashed and change constantly — avoid them as primary selectors.
 const SELECTORS = {
   profile: {
     name: [
-      // Current LinkedIn (2024-2026)
+      // h1 on profile pages — relatively stable tag usage
       'h1.text-heading-xlarge',
-      '.pv-text-details__left-panel h1',
-      '.ph5 h1',
-      '.pv-top-card h1',
+      'h1[class*="text-heading"]',
+      'h1[class*="break-words"]',
+      'h1[class*="inline"]',
       '.scaffold-layout__main h1',
       'main h1',
-      // Class fragment matches
-      'h1[class*="inline"]',
-      'h1[class*="heading"]',
-      'h1[class*="break-words"]',
-      'h1[class*="text-heading"]',
-      // Older LinkedIn
-      'h1[class*="name"]',
-      '.profile-header h1',
-      '.pv-top-card--list h1',
-      '.artdeco-card h1',
-      // Absolute last resort
       'h1'
     ],
     headline: [
-      '.text-body-medium.break-words',
-      '.pv-text-details__left-panel .text-body-medium',
-      '.ph5 .text-body-medium',
-      'div[class*="text-body-medium"]',
+      // data-field is the most stable
       '[data-field="headline"]',
-      '.pv-top-card--list .text-body-medium',
+      // dir="ltr" on the headline container
+      '.pv-text-details__left-panel [dir="ltr"]',
+      '.ph5 [dir="ltr"]',
+      // class fragment fallbacks
+      '[class*="text-body-medium"]',
       '[class*="headline"]',
-      '.pv-top-card-section__headline'
     ],
     avatar: [
+      // aria-label is required for accessibility — stable
+      'button[aria-label*="profile photo" i] img',
+      'button[aria-label*="your photo" i] img',
+      'img[alt*="profile photo" i]',
+      'img[alt*="Photo of" i]',
+      // class fallbacks
       '.pv-top-card-profile-picture__image--show',
       '.pv-top-card-profile-picture__image',
-      '.profile-photo-edit__preview',
       'img.evi-image[alt*="photo" i]',
-      'img.evi-image[alt*="Photo" i]',
-      '.presence-entity__image',
-      '.pv-top-card__photo img',
-      'button[aria-label*="profile photo" i] img',
-      '.profile-picture img',
-      'img[alt*="profile" i]'
+      'img[class*="profile-picture"]',
     ],
     followers: [
-      'span[class*="follower"]',
-      '[class*="follower"] span',
-      '.pv-recent-activity-section__follower-count',
-      'span[class*="follower-count"]',
+      // href pattern is stable
       'a[href*="followers"] span',
+      // aria / text patterns
+      'span[aria-label*="follower" i]',
+      '[class*="follower"] span',
+      'span[class*="follower"]',
       'p[class*="follower"]'
     ]
   },
 
+  // NOTE: posts selectors are only used as fallback.
+  // The primary extraction in extractPosts() uses URN data attributes
+  // and aria-labels directly — see content.js extractPosts().
   posts: {
     containers: [
-      '.feed-shared-update-v2',
-      '[data-urn*="activity"]',
+      // data-urn / data-id are LinkedIn's own content IDs — very stable
+      '[data-urn*="urn:li:activity"]',
+      '[data-id*="urn:li:activity"]',
       '[data-urn*="ugcPost"]',
+      '[data-id*="ugcPost"]',
+      // class fallbacks (will break when LinkedIn updates, but harmless as backup)
+      '.feed-shared-update-v2',
       '.occludable-update',
-      '.feed-shared-article',
-      'article[class*="feed"]',
-      '.update-components-actor',
-      'div[data-id*="urn:li:activity"]',
-      '.profile-creator-shared-feed-update__container',
-      // profile activity tab
-      '.artdeco-list__item .feed-shared-update-v2',
-      'li.profile-creator-shared-feed-update__container'
+      'li.profile-creator-shared-feed-update__container',
     ],
-    content: [
-      '.feed-shared-update-v2__description .break-words',
-      '.feed-shared-text .break-words',
-      '.update-components-text',
-      '.update-components-text__text-view',
-      '[class*="commentary"] span[dir]',
-      '.feed-shared-inline-show-more-text',
-      '.feed-shared-update-v2__description span[dir]',
-      '.attributed-text-segment-list__content',
-      'span[dir="ltr"]'
-    ],
-    reactions: [
-      '.social-details-social-counts__reactions-count',
-      '[class*="reactions-count"]',
-      '.social-counts-reactions__count-value',
-      'button[aria-label*="reaction" i] span',
-      '.reactions-icon__count',
-      'span[class*="social-counts"]',
-      '[data-test-id="social-actions__reaction-count"]',
-      'button[aria-label*="Like" i] span',
-      '.social-details-social-counts__item span',
-      // Activity page: "You and 71 others" link
-      'button[aria-label*="others"] span',
-      'a[aria-label*="reaction" i]',
-      '.social-details-social-counts button span',
-      'span.social-details-social-counts__reactions-count'
-    ],
-    comments: [
-      '.social-details-social-counts__comments',
-      'button[aria-label*="comment" i]',
-      'button[class*="comments-count"]',
-      '.comments-count',
-      '[data-test-id="social-actions__comments"]',
-      'button[aria-label*="Comment" i] span',
-      'li.social-details-social-counts__item--right button'
-    ],
-    reposts: [
-      'button[aria-label*="repost" i]',
-      'button[aria-label*="Repost" i]',
-      '.social-details-social-counts__item--with-social-proof',
-      'button[class*="reshares"]',
-      '[aria-label*="reposts" i] span'
-    ],
-    postUrl: [
+    // content/reactions/etc. selectors below are ONLY used as fallbacks inside
+    // the smarter extractPosts() logic — prefer aria-label / dir / time attrs.
+    content:   ['span[dir="ltr"]'],
+    reactions: ['button[aria-label*="reaction" i]', 'button[aria-label*="like" i]'],
+    comments:  ['button[aria-label*="comment" i]'],
+    reposts:   ['button[aria-label*="repost" i]'],
+    postUrl:   [
+      'a[href*="/feed/update/"]',
       'a[href*="/posts/"]',
+      'a[href*="urn:li:activity"]',
       'a[href*="/activity-"]',
-      'a.app-aware-link[href*="/feed/update/"]',
-      'a[href*="linkedin.com/feed/update"]',
-      '.feed-shared-update-v2__update-content-list a[href*="linkedin.com"]',
-      'a[href*="urn:li:activity"]'
     ],
-    timestamp: [
-      'time[datetime]',
-      '.update-components-actor__sub-description time',
-      '.feed-shared-actor__sub-description time',
-      'span[class*="posted-date"]',
-      '.update-components-actor__meta time',
-      'a[href*="activity"] time'
-    ],
+    timestamp:  ['time[datetime]'],
     mediaImage: [
-      '.feed-shared-image img',
       '.update-components-image img',
-      '.feed-shared-mini-update-v2__image img',
-      'img[class*="feed-shared"]',
-      '.update-components-image__image-link img'
+      '.feed-shared-image img',
+      'img[src*="media.licdn"]',
     ]
   }
 };
@@ -174,6 +119,24 @@ function parseCount(text) {
 }
 
 function extractPostUrl(container) {
+  // 1. Prefer data-urn / data-id — LinkedIn's own content identifier, very stable
+  const urnAttr = container.getAttribute('data-urn')
+    || container.getAttribute('data-id')
+    || container.querySelector('[data-urn]')?.getAttribute('data-urn')
+    || container.querySelector('[data-id]')?.getAttribute('data-id');
+
+  if (urnAttr) {
+    if (urnAttr.includes('urn:li:activity:')) {
+      const id = urnAttr.match(/urn:li:activity:(\d+)/)?.[1];
+      if (id) return `https://www.linkedin.com/feed/update/urn:li:activity:${id}/`;
+    }
+    if (urnAttr.includes('ugcPost')) {
+      const id = urnAttr.match(/ugcPost:(\d+)/)?.[1];
+      if (id) return `https://www.linkedin.com/feed/update/urn:li:ugcPost:${id}/`;
+    }
+  }
+
+  // 2. Find a link whose href matches LinkedIn post URL patterns
   for (const sel of SELECTORS.posts.postUrl) {
     try {
       const a = container.querySelector(sel);
@@ -183,14 +146,7 @@ function extractPostUrl(container) {
       }
     } catch (_) {}
   }
-  // Try data-urn attribute
-  const urn = container.getAttribute('data-urn')
-    || container.querySelector('[data-urn]')?.getAttribute('data-urn')
-    || container.getAttribute('data-id');
-  if (urn && urn.includes('activity')) {
-    const id = urn.split(':').pop();
-    return `https://www.linkedin.com/feed/update/urn:li:activity:${id}/`;
-  }
+
   return null;
 }
 
