@@ -195,16 +195,25 @@ function extractPostUrl(container) {
 }
 
 // Parse name from document.title — LinkedIn titles: "Tommy Clark | LinkedIn"
-// or "(2) Tommy Clark | LinkedIn" or "Tommy Clark - CEO | LinkedIn"
+// or "(2) Tommy Clark | LinkedIn" or "Activity | Tommy Clark | LinkedIn"
 function getNameFromTitle() {
   const title = document.title || '';
   // Strip leading notification count like "(2) "
   const clean = title.replace(/^\(\d+\)\s*/, '');
-  // Everything before " | LinkedIn" or " - "
-  const parts = clean.split(' | ');
-  if (parts.length >= 2 && parts[parts.length - 1].toLowerCase().includes('linkedin')) {
-    return parts[0].trim();
-  }
+  const parts = clean.split(' | ').map(p => p.trim());
+
+  // Generic terms that are never a person's name
+  const skip = new Set([
+    'linkedin', 'activity', 'all activity', 'recent activity',
+    'posts', 'videos', 'images', 'documents', 'feed', 'home',
+    'notifications', 'jobs', 'messaging', 'search', 'premium',
+    'my network', 'profile'
+  ]);
+
+  // Return the first segment that isn't a generic LinkedIn page term
+  const namePart = parts.find(p => p.length > 1 && !skip.has(p.toLowerCase()));
+  if (namePart) return namePart;
+
   // Fallback: before first " - "
   const dashParts = clean.split(' - ');
   if (dashParts.length >= 2) return dashParts[0].trim();

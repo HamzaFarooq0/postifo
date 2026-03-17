@@ -13,6 +13,12 @@
   let scrollIntervalRef = null;
   let stopRequested = false;
 
+  // Scrape progress state (for live panel updates)
+  let scrapeStartTime = null;
+  let scrapeTimerRef = null;
+  let scrapeMaxPosts = 0;
+  let scrapeCutoffDate = null;
+
   // Guard: if the extension context is invalidated (e.g. after reload),
   // stop gracefully instead of throwing uncaught errors.
   function isExtensionAlive() {
@@ -71,8 +77,15 @@
   }
 
   // ─── Profile data extraction ─────────────────────────────────────────
+  const GENERIC_NAMES = new Set([
+    'activity', 'all activity', 'recent activity', 'posts', 'feed',
+    'home', 'notifications', 'jobs', 'messaging', 'profile', 'linkedin'
+  ]);
+
   function getProfileData() {
     let name = queryFirst(document, SELECTORS.profile.name)?.innerText?.trim();
+    // Reject generic LinkedIn page headings (e.g. "Activity" on activity pages)
+    if (name && GENERIC_NAMES.has(name.toLowerCase())) name = null;
     if (!name) name = getNameFromTitle();
 
     const headline = queryFirst(document, SELECTORS.profile.headline)?.innerText?.trim() || null;
@@ -437,45 +450,111 @@
 
   // ─── Panel Progress (replaces top scrape banner) ────────────────────
 
+  function formatElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}m ${rem}s`;
+  }
+
   function showPanelProgress(name, cutoffDate, maxPosts) {
     const section = document.getElementById('ll-panel-progress-section');
     if (!section) return;
 
-    const rangeLabel = cutoffDate
-      ? `last ${Math.round((Date.now() - cutoffDate.getTime()) / (30 * 24 * 3600 * 1000))} months`
-      : 'all time';
-    const limitLabel = maxPosts > 0 ? ` · up to ${maxPosts}` : '';
+    // Store for updatePanelProgress to use
+    scrapeStartTime  = Date.now();
+    scrapeMaxPosts   = maxPosts || 0;
+    scrapeCutoffDate = cutoffDate || null;
+
+    const targetLabel = maxPosts > 0
+      ? `${maxPosts} posts (by count)`
+      : cutoffDate
+        ? `Posts since ${cutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+        : 'All posts (no limit)';
 
     section.innerHTML = `
       <div class="ll-panel-progress">
         <div class="ll-panel-progress-header">
           <div class="ll-panel-progress-dot"></div>
-          <span class="ll-panel-progress-label">Scraping ${rangeLabel}${limitLabel}</span>
+          <span class="ll-panel-progress-label">Scraping in progress</span>
         </div>
+
         <div class="ll-panel-progress-bar-track">
           <div class="ll-panel-progress-bar-fill" id="ll-progress-fill" style="width:1%"></div>
         </div>
-        <div id="ll-progress-sub">Starting… you can switch tabs freely</div>
+
+        <div class="ll-progress-big-count" id="ll-progress-big-count">0</div>
+        <div class="ll-progress-big-label" id="ll-progress-big-label">posts found so far</div>
+
+        <div class="ll-progress-stats-grid">
+          <div class="ll-progress-stat-box">
+            <div class="ll-progress-stat-val" id="ll-progress-pct">0%</div>
+            <div class="ll-progress-stat-key">Progress</div>
+          </div>
+          <div class="ll-progress-stat-box">
+            <div class="ll-progress-stat-val" id="ll-progress-scrolls">0</div>
+            <div class="ll-progress-stat-key">Scrolls</div>
+          </div>
+          <div class="ll-progress-stat-box">
+            <div class="ll-progress-stat-val" id="ll-progress-elapsed">0s</div>
+            <div class="ll-progress-stat-key">Elapsed</div>
+          </div>
+        </div>
+
+        <div class="ll-progress-target-row">
+          <span class="ll-progress-target-label">Target</span>
+          <span class="ll-progress-target-val" id="ll-progress-target">${targetLabel}</span>
+        </div>
+
+        <div class="ll-progress-hint">You can switch tabs — scraping continues</div>
       </div>
     `;
     section.style.display = 'block';
 
+    // Tick elapsed time every second
+    if (scrapeTimerRef) clearInterval(scrapeTimerRef);
+    scrapeTimerRef = setInterval(() => {
+      const el = document.getElementById('ll-progress-elapsed');
+      if (el) el.textContent = formatElapsed(Date.now() - scrapeStartTime);
+    }, 1000);
+
     if (sidePanel) sidePanel.classList.add('ll-panel--scraping');
     openPanel();
+
+    // Scroll panel content so progress section is visible
+    requestAnimationFrame(() => {
+      const content = document.getElementById('ll-panel-content');
+      if (content) content.scrollTop = content.scrollHeight;
+    });
   }
 
   function updatePanelProgress(count, scrolls, maxScrolls) {
-    const fill = document.getElementById('ll-progress-fill');
-    const sub  = document.getElementById('ll-progress-sub');
-    const pct  = Math.min(Math.round((scrolls / maxScrolls) * 100), 95);
-    if (fill) fill.style.width = pct + '%';
-    if (sub)  sub.innerHTML = `<strong style="color:#F5F5F5">${count}</strong> posts collected &nbsp;·&nbsp; ${pct}% done`;
+    const pct = scrapeMaxPosts > 0
+      ? Math.min(Math.round((count / scrapeMaxPosts) * 100), 99)
+      : Math.min(Math.round((scrolls / maxScrolls) * 100), 95);
+
+    const fill       = document.getElementById('ll-progress-fill');
+    const bigCount   = document.getElementById('ll-progress-big-count');
+    const bigLabel   = document.getElementById('ll-progress-big-label');
+    const pctEl      = document.getElementById('ll-progress-pct');
+    const scrollsEl  = document.getElementById('ll-progress-scrolls');
+
+    if (fill)      fill.style.width = pct + '%';
+    if (bigCount)  bigCount.textContent = count.toLocaleString();
+    if (bigLabel)  bigLabel.textContent = scrapeMaxPosts > 0
+      ? `of ${scrapeMaxPosts} posts`
+      : 'posts found so far';
+    if (pctEl)     pctEl.textContent = pct + '%';
+    if (scrollsEl) scrollsEl.textContent = scrolls;
   }
 
   function hidePanelProgress() {
     const section = document.getElementById('ll-panel-progress-section');
     if (section) section.style.display = 'none';
     if (sidePanel) sidePanel.classList.remove('ll-panel--scraping');
+    if (scrapeTimerRef) { clearInterval(scrapeTimerRef); scrapeTimerRef = null; }
+    scrapeStartTime = null;
   }
 
   // Backward-compat aliases used by startScrollScraping
@@ -636,6 +715,13 @@
       if (btn) btn.querySelector('.ll-label').textContent = `Scraping… (${collectedPosts.length})`;
 
       return hitCutoff || limitHit;
+    }
+
+    // Debug: log how many post containers are visible right now
+    const debugContainers = extractPosts();
+    console.log(`[Postifo] Initial scan: ${debugContainers.length} posts detected on page`);
+    if (debugContainers.length === 0) {
+      console.warn('[Postifo] No posts found — LinkedIn DOM may have changed. Check selectors.');
     }
 
     collectNow();
