@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import CreatorDetail from './pages/CreatorDetail.jsx'
+import CreatorAnalysis from './pages/CreatorAnalysis.jsx'
 import Library from './pages/Library.jsx'
 import Hooks from './pages/Hooks.jsx'
 import Saved from './pages/Saved.jsx'
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index                              element={<Dashboard />} />
             <Route path="creator/:id"                element={<CreatorDetail />} />
+            <Route path="creator/:id/analysis"      element={<CreatorAnalysis />} />
             <Route path="library"                    element={<Library />} />
             <Route path="hooks"                      element={<Hooks />} />
             <Route path="saved"                      element={<Saved />} />

@@ -5,9 +5,10 @@
   const { queryFirst, queryAll, parseCount, extractPostUrl, getNameFromTitle } = window.PostifoHelpers;
   const SELECTORS = window.PostifoSelectors;
   const API_BASE = 'https://postifo-backend-production.up.railway.app';
+  const DASHBOARD_URL = 'https://postifo.vercel.app';
 
   let isTracking = false;
-  let trackButton = null;
+  let sidePanel = null;
   let observer = null;
   let scrollIntervalRef = null;
   let stopRequested = false;
@@ -19,10 +20,7 @@
   }
 
   function safeStorageGet(keys, cb) {
-    if (!isExtensionAlive()) {
-      showStaleToast();
-      return;
-    }
+    if (!isExtensionAlive()) { showStaleToast(); return; }
     try { chrome.storage.local.get(keys, cb); } catch (e) {
       console.warn('[Postifo] context invalidated', e);
       showStaleToast();
@@ -40,7 +38,6 @@
   }
 
   function showStaleToast() {
-    // Avoid spamming — only show once per page load
     if (document.getElementById('ll-stale-toast')) return;
     const t = document.createElement('div');
     t.id = 'll-stale-toast';
@@ -57,7 +54,6 @@
 
   // ─── Page type detection ─────────────────────────────────────────────
   function isProfilePage() {
-    // Matches /in/username but NOT /in/username/recent-activity/...
     return /linkedin\.com\/in\/[^/]+\/?$/.test(window.location.href.split('?')[0]);
   }
 
@@ -71,8 +67,7 @@
   }
 
   function getActivityUrl(profileUrl) {
-    const clean = profileUrl.replace(/\/$/, '');
-    return `${clean}/recent-activity/all/`;
+    return `${profileUrl.replace(/\/$/, '')}/recent-activity/all/`;
   }
 
   // ─── Profile data extraction ─────────────────────────────────────────
@@ -127,34 +122,368 @@
     return posts;
   }
 
-  // ─── Track Button ─────────────────────────────────────────────────────
-  function injectTrackButton() {
-    if (trackButton) return;
+  // ─── Side Panel ───────────────────────────────────────────────────────
+
+  function injectSidePanel() {
+    if (sidePanel) return;
     if (!isProfilePage() && !isActivityPage()) return;
 
-    trackButton = document.createElement('div');
-    trackButton.id = 'postifo-track-btn';
+    // Restore saved vertical position
+    let savedTop = 40;
+    try {
+      const v = localStorage.getItem('postifo_panel_top');
+      if (v) savedTop = Math.max(5, Math.min(85, parseFloat(v)));
+    } catch {}
+
+    sidePanel = document.createElement('div');
+    sidePanel.id = 'postifo-panel';
+    sidePanel.style.top = savedTop + '%';
 
     const isActivity = isActivityPage();
-    trackButton.innerHTML = `
-      <button id="ll-btn" title="Track this creator with Postifo">
-        <span class="ll-icon">🔍</span>
-        <span class="ll-label">${isActivity ? 'Scrape All Posts' : 'Track Creator'}</span>
-      </button>
-      <button id="ll-stop-btn" title="Stop scraping" style="display:none">
-        <span class="ll-icon">⏹</span>
-        <span class="ll-label">Stop</span>
-      </button>
+    const btnLabel = isActivity ? 'Scrape Posts' : 'Track Creator';
+
+    sidePanel.innerHTML = `
+      <div id="postifo-panel-body-wrap">
+        <div id="postifo-panel-body">
+          <div class="ll-panel-header">
+            <img class="ll-panel-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="Postifo" />
+            <span class="ll-panel-title">Postifo</span>
+            <button id="ll-panel-close-btn" title="Close panel">✕</button>
+          </div>
+          <div id="ll-panel-content">
+            <div class="ll-panel-creator" id="ll-panel-creator-card" style="display:none"></div>
+            <button id="ll-btn">
+              <span class="ll-icon">🔍</span>
+              <span class="ll-label">${btnLabel}</span>
+            </button>
+            <button id="ll-stop-btn" style="display:none">
+              <span class="ll-icon">⏹</span>
+              <span class="ll-label">Stop Scraping</span>
+            </button>
+            <div id="ll-panel-config-section" style="display:none"></div>
+            <div id="ll-panel-progress-section" style="display:none"></div>
+          </div>
+          <div class="ll-panel-footer">
+            <a class="ll-panel-dashboard-link" href="${DASHBOARD_URL}" target="_blank" rel="noopener">
+              Open Dashboard ↗
+            </a>
+          </div>
+        </div>
+      </div>
+      <div id="postifo-panel-tab" title="Postifo — click to open/close">
+        <img id="postifo-tab-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="P" />
+        <div id="postifo-tab-pulse"></div>
+        <span id="postifo-tab-arrow">‹</span>
+      </div>
     `;
-    document.body.appendChild(trackButton);
+
+    document.body.appendChild(sidePanel);
+
+    // Populate creator card
+    populateCreatorCard();
+
+    // Wire up events
     document.getElementById('ll-btn').addEventListener('click', handleTrackClick);
     document.getElementById('ll-stop-btn').addEventListener('click', handleStopClick);
+    document.getElementById('ll-panel-close-btn').addEventListener('click', closePanel);
+
+    // Tab: click to toggle, drag to reposition
+    setupPanelDrag();
   }
 
-  function removeTrackButton() {
-    if (trackButton) { trackButton.remove(); trackButton = null; }
+  function removeSidePanel() {
+    if (sidePanel) { sidePanel.remove(); sidePanel = null; }
   }
 
+  function openPanel() {
+    if (!sidePanel) return;
+    sidePanel.classList.add('ll-panel--open');
+    const arrow = document.getElementById('postifo-tab-arrow');
+    if (arrow) arrow.textContent = '›';
+  }
+
+  function closePanel() {
+    if (!sidePanel) return;
+    sidePanel.classList.remove('ll-panel--open');
+    const arrow = document.getElementById('postifo-tab-arrow');
+    if (arrow) arrow.textContent = '‹';
+  }
+
+  function isPanelOpen() {
+    return sidePanel && sidePanel.classList.contains('ll-panel--open');
+  }
+
+  // ─── Vertical drag for the tab ─────────────────────────────────────
+
+  function setupPanelDrag() {
+    const tab = document.getElementById('postifo-panel-tab');
+    if (!tab) return;
+
+    let startY = 0, startTopPx = 0, isDragging = false, didMove = false;
+
+    tab.addEventListener('mousedown', e => {
+      isDragging = true;
+      didMove = false;
+      startY = e.clientY;
+      startTopPx = sidePanel.getBoundingClientRect().top;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const deltaY = e.clientY - startY;
+      if (Math.abs(deltaY) > 4) didMove = true;
+      if (!didMove) return;
+
+      let newTop = startTopPx + deltaY;
+      // Clamp: keep tab visible on screen
+      newTop = Math.max(10, Math.min(window.innerHeight - 90, newTop));
+      sidePanel.style.top = newTop + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      if (!didMove) {
+        // It was a click, not a drag → toggle panel
+        isPanelOpen() ? closePanel() : openPanel();
+      } else {
+        // Save position as percentage so it works across window resizes
+        const topPx = sidePanel.getBoundingClientRect().top;
+        const topPct = (topPx / window.innerHeight) * 100;
+        sidePanel.style.top = topPct + '%';
+        try { localStorage.setItem('postifo_panel_top', topPct.toFixed(1)); } catch {}
+      }
+      didMove = false;
+    });
+  }
+
+  // ─── Populate creator card ──────────────────────────────────────────
+
+  function populateCreatorCard() {
+    const card = document.getElementById('ll-panel-creator-card');
+    if (!card) return;
+
+    const profileData = getProfileData();
+    if (!profileData.name && !profileData.linkedinId) return;
+
+    const avatarHtml = profileData.avatarUrl
+      ? `<img class="ll-panel-avatar" src="${profileData.avatarUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ll-panel-avatar-placeholder" style="display:none">👤</div>`
+      : `<div class="ll-panel-avatar-placeholder">👤</div>`;
+
+    const followersHtml = profileData.followerCount
+      ? `<div class="ll-panel-creator-followers">
+           <span style="color:#A3A3A3;font-weight:400">Followers</span>
+           ${profileData.followerCount.toLocaleString()}
+         </div>`
+      : '';
+
+    const profileLink = profileData.linkedinUrl
+      ? `<a class="ll-panel-view-profile" href="${profileData.linkedinUrl}" target="_blank" rel="noopener">View profile ↗</a>`
+      : '';
+
+    card.innerHTML = `
+      ${avatarHtml}
+      <div class="ll-panel-creator-info">
+        <div class="ll-panel-creator-name">${profileData.name || profileData.linkedinId}</div>
+        ${profileData.headline ? `<div class="ll-panel-creator-headline">${profileData.headline}</div>` : ''}
+        <div class="ll-panel-creator-meta">
+          ${followersHtml}
+          ${profileLink}
+        </div>
+      </div>
+    `;
+    card.style.display = 'flex';
+  }
+
+  // ─── Inline Scrape Config (replaces the modal) ─────────────────────
+
+  function showPanelConfig(profileData, scrapeInfo, onStart) {
+    const configSection = document.getElementById('ll-panel-config-section');
+    if (!configSection) return;
+
+    const lastScraped = scrapeInfo?.lastScrapedAt ? new Date(scrapeInfo.lastScrapedAt) : null;
+
+    const TIME_OPTIONS = [
+      { label: '1 mo',  months: 1  },
+      { label: '3 mo',  months: 3  },
+      { label: '6 mo',  months: 6  },
+      { label: '1 yr',  months: 12 },
+      { label: 'All',   months: 0  },
+    ];
+    const COUNT_OPTIONS = [
+      { label: '25',   count: 25  },
+      { label: '50',   count: 50  },
+      { label: '100',  count: 100 },
+      { label: '200',  count: 200 },
+    ];
+
+    let mode           = lastScraped ? 'new' : 'time';
+    let selectedMonths = 3;
+    let selectedCount  = 50;
+
+    const newPostsLabel = lastScraped
+      ? lastScraped.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '';
+
+    configSection.innerHTML = `
+      <div class="ll-panel-config">
+        <div class="ll-panel-config-title">Scrape Options</div>
+
+        ${lastScraped ? `
+          <div class="ll-scrape-info-box">
+            Already have <strong>${scrapeInfo.postCount} posts</strong>.<br>
+            Last scraped <span class="ll-scrape-info-date">${newPostsLabel}</span>.
+          </div>
+        ` : ''}
+
+        <div class="ll-tab-row">
+          ${lastScraped ? `<button class="ll-tab ll-tab--active" data-mode="new">New only</button>` : ''}
+          <button class="ll-tab${!lastScraped ? ' ll-tab--active' : ''}" data-mode="time">By time</button>
+          <button class="ll-tab" data-mode="count">By count</button>
+        </div>
+
+        ${lastScraped ? `
+        <div id="ll-cfg-new" class="ll-config-section">
+          <div class="ll-config-hint">Only posts after <strong style="color:#FF6B35">${newPostsLabel}</strong> will be scraped.</div>
+        </div>` : ''}
+
+        <div id="ll-cfg-time" ${lastScraped ? 'style="display:none"' : ''}>
+          <div class="ll-chip-row">
+            ${TIME_OPTIONS.map(o => `
+              <button class="ll-chip${o.months === selectedMonths ? ' ll-chip--active' : ''}" data-months="${o.months}">${o.label}</button>
+            `).join('')}
+          </div>
+          <div class="ll-config-hint">Stops when posts older than this range are reached.</div>
+        </div>
+
+        <div id="ll-cfg-count" style="display:none">
+          <div class="ll-chip-row">
+            ${COUNT_OPTIONS.map(o => `
+              <button class="ll-chip${o.count === selectedCount ? ' ll-chip--active' : ''}" data-count="${o.count}">${o.label}</button>
+            `).join('')}
+          </div>
+          <div class="ll-config-hint">Stops once this many posts are collected.</div>
+        </div>
+
+        <button class="ll-config-start" id="ll-config-start">Start Scraping →</button>
+        <span class="ll-config-cancel-link" id="ll-config-cancel">Cancel</span>
+      </div>
+    `;
+
+    configSection.style.display = 'block';
+
+    // Tab switching
+    configSection.querySelectorAll('.ll-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        mode = tab.dataset.mode;
+        configSection.querySelectorAll('.ll-tab').forEach(t => t.classList.remove('ll-tab--active'));
+        tab.classList.add('ll-tab--active');
+        const pNew   = document.getElementById('ll-cfg-new');
+        const pTime  = document.getElementById('ll-cfg-time');
+        const pCount = document.getElementById('ll-cfg-count');
+        if (pNew)   pNew.style.display   = mode === 'new'   ? '' : 'none';
+        if (pTime)  pTime.style.display  = mode === 'time'  ? '' : 'none';
+        if (pCount) pCount.style.display = mode === 'count' ? '' : 'none';
+      });
+    });
+
+    // Time chips
+    configSection.querySelectorAll('#ll-cfg-time .ll-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        configSection.querySelectorAll('#ll-cfg-time .ll-chip').forEach(b => b.classList.remove('ll-chip--active'));
+        btn.classList.add('ll-chip--active');
+        selectedMonths = parseInt(btn.dataset.months);
+      });
+    });
+
+    // Count chips
+    configSection.querySelectorAll('#ll-cfg-count .ll-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        configSection.querySelectorAll('#ll-cfg-count .ll-chip').forEach(b => b.classList.remove('ll-chip--active'));
+        btn.classList.add('ll-chip--active');
+        selectedCount = parseInt(btn.dataset.count);
+      });
+    });
+
+    document.getElementById('ll-config-cancel').addEventListener('click', () => {
+      configSection.style.display = 'none';
+      const btn = document.getElementById('ll-btn');
+      if (btn) { btn.disabled = false; btn.querySelector('.ll-label').textContent = isActivityPage() ? 'Scrape Posts' : 'Track Creator'; }
+    });
+
+    document.getElementById('ll-config-start').addEventListener('click', () => {
+      configSection.style.display = 'none';
+      if (mode === 'new') {
+        onStart({ cutoffDate: lastScraped, maxPosts: 0 });
+      } else if (mode === 'time') {
+        const cutoffDate = selectedMonths > 0
+          ? new Date(Date.now() - selectedMonths * 30 * 24 * 3600 * 1000)
+          : null;
+        onStart({ cutoffDate, maxPosts: 0 });
+      } else {
+        onStart({ cutoffDate: null, maxPosts: selectedCount });
+      }
+    });
+
+    openPanel();
+  }
+
+  // Keep showScrapeConfig as alias so any future callers still work
+  function showScrapeConfig(profileData, scrapeInfo, onStart) {
+    showPanelConfig(profileData, scrapeInfo, onStart);
+  }
+
+  // ─── Panel Progress (replaces top scrape banner) ────────────────────
+
+  function showPanelProgress(name, cutoffDate, maxPosts) {
+    const section = document.getElementById('ll-panel-progress-section');
+    if (!section) return;
+
+    const rangeLabel = cutoffDate
+      ? `last ${Math.round((Date.now() - cutoffDate.getTime()) / (30 * 24 * 3600 * 1000))} months`
+      : 'all time';
+    const limitLabel = maxPosts > 0 ? ` · up to ${maxPosts}` : '';
+
+    section.innerHTML = `
+      <div class="ll-panel-progress">
+        <div class="ll-panel-progress-header">
+          <div class="ll-panel-progress-dot"></div>
+          <span class="ll-panel-progress-label">Scraping ${rangeLabel}${limitLabel}</span>
+        </div>
+        <div class="ll-panel-progress-bar-track">
+          <div class="ll-panel-progress-bar-fill" id="ll-progress-fill" style="width:1%"></div>
+        </div>
+        <div id="ll-progress-sub">Starting… you can switch tabs freely</div>
+      </div>
+    `;
+    section.style.display = 'block';
+
+    if (sidePanel) sidePanel.classList.add('ll-panel--scraping');
+    openPanel();
+  }
+
+  function updatePanelProgress(count, scrolls, maxScrolls) {
+    const fill = document.getElementById('ll-progress-fill');
+    const sub  = document.getElementById('ll-progress-sub');
+    const pct  = Math.min(Math.round((scrolls / maxScrolls) * 100), 95);
+    if (fill) fill.style.width = pct + '%';
+    if (sub)  sub.innerHTML = `<strong style="color:#F5F5F5">${count}</strong> posts collected &nbsp;·&nbsp; ${pct}% done`;
+  }
+
+  function hidePanelProgress() {
+    const section = document.getElementById('ll-panel-progress-section');
+    if (section) section.style.display = 'none';
+    if (sidePanel) sidePanel.classList.remove('ll-panel--scraping');
+  }
+
+  // Backward-compat aliases used by startScrollScraping
+  function showScrapeBanner(name, cutoffDate, maxPosts) { showPanelProgress(name, cutoffDate, maxPosts); }
+  function updateScrapeBanner(count, scrolls, maxScrolls) { updatePanelProgress(count, scrolls, maxScrolls); }
+  function removeScrapeBanner() { hidePanelProgress(); }
+
+  // ─── Track button click ───────────────────────────────────────────
   async function handleTrackClick() {
     const btn = document.getElementById('ll-btn');
     if (!btn || isTracking) return;
@@ -171,10 +500,10 @@
           showToast('Could not read profile name.', 'error');
           return;
         }
-        // Show config then navigate on confirm (no scrapeInfo on profile page — activity page handles incremental)
+        btn.disabled = true;
+        btn.querySelector('.ll-label').textContent = 'Loading…';
         showScrapeConfig(profileData, null, (config) => {
           isTracking = true;
-          btn.disabled = true;
           btn.querySelector('.ll-label').textContent = 'Starting…';
           safeStorageGet(['ll_pending_creators'], (d) => {
             const pending = d.ll_pending_creators || [];
@@ -205,7 +534,6 @@
             btn.querySelector('.ll-label').textContent = 'Scraping…';
             const stopBtn = document.getElementById('ll-stop-btn');
             if (stopBtn) stopBtn.style.display = 'flex';
-            // Ensure creator is queued for /api/creators/track before posts sync
             safeStorageGet(['ll_pending_creators'], (d) => {
               const pending = d.ll_pending_creators || [];
               if (!pending.find(c => c.linkedinUrl === profileData.linkedinUrl)) {
@@ -217,7 +545,6 @@
           });
         }
 
-        // Fetch last scrape info to offer "New posts only" incremental option
         const token = data.ll_auth?.token;
         fetch(`${API_BASE}/api/creators/scrape-info?linkedinUrl=${encodeURIComponent(profileData.linkedinUrl)}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -225,142 +552,6 @@
           .then(r => r.ok ? r.json() : null)
           .catch(() => null)
           .then(scrapeInfo => startWithConfig(scrapeInfo));
-      }
-    });
-  }
-
-  // ─── Scrape config modal ─────────────────────────────────────────────
-  // scrapeInfo = { lastScrapedAt: Date|null, postCount: number } | null
-  function showScrapeConfig(profileData, scrapeInfo, onStart) {
-    const existing = document.getElementById('ll-config-overlay');
-    if (existing) existing.remove();
-
-    const lastScraped = scrapeInfo?.lastScrapedAt ? new Date(scrapeInfo.lastScrapedAt) : null;
-
-    const TIME_OPTIONS = [
-      { label: '1 month',  months: 1  },
-      { label: '3 months', months: 3  },
-      { label: '6 months', months: 6  },
-      { label: '1 year',   months: 12 },
-      { label: 'All time', months: 0  },
-    ];
-    const COUNT_OPTIONS = [
-      { label: '25',       count: 25  },
-      { label: '50',       count: 50  },
-      { label: '100',      count: 100 },
-      { label: '200',      count: 200 },
-    ];
-
-    // If previously scraped, default to incremental mode
-    let mode           = lastScraped ? 'new' : 'time'; // 'new' | 'time' | 'count'
-    let selectedMonths = 3;
-    let selectedCount  = 50;
-
-    const newPostsLabel = lastScraped
-      ? `Since ${lastScraped.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-      : '';
-
-    const overlay = document.createElement('div');
-    overlay.id = 'll-config-overlay';
-    overlay.innerHTML = `
-      <div id="ll-config-modal">
-        <div class="ll-config-header">
-          <img class="ll-config-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="Postifo" />
-          <span class="ll-config-title">Configure Scrape</span>
-          <span class="ll-config-creator">${profileData.name}</span>
-        </div>
-
-        <div class="ll-tab-row">
-          ${lastScraped ? `<button class="ll-tab ll-tab--active" data-mode="new">New posts only</button>` : ''}
-          <button class="ll-tab${!lastScraped ? ' ll-tab--active' : ''}" data-mode="time">By Time</button>
-          <button class="ll-tab" data-mode="count">By Count</button>
-        </div>
-
-        ${lastScraped ? `
-        <div id="ll-panel-new" class="ll-config-section">
-          <div class="ll-config-hint" style="color:#A3A3A3;font-size:12px;line-height:1.6">
-            ✅ Already have <strong style="color:#F5F5F5">${scrapeInfo.postCount} posts</strong> from this creator.<br>
-            Will only scrape posts published after <strong style="color:#FF6B35">${newPostsLabel}</strong>.
-          </div>
-        </div>` : ''}
-
-        <div id="ll-panel-time" class="ll-config-section" style="${lastScraped ? 'display:none' : ''}">
-          <div class="ll-chip-row">
-            ${TIME_OPTIONS.map(o => `
-              <button class="ll-chip${o.months === selectedMonths ? ' ll-chip--active' : ''}"
-                data-months="${o.months}">${o.label}</button>
-            `).join('')}
-          </div>
-          <div class="ll-config-hint">Stops when posts older than this are reached.</div>
-        </div>
-
-        <div id="ll-panel-count" class="ll-config-section" style="display:none">
-          <div class="ll-chip-row">
-            ${COUNT_OPTIONS.map(o => `
-              <button class="ll-chip${o.count === selectedCount ? ' ll-chip--active' : ''}"
-                data-count="${o.count}">${o.label} posts</button>
-            `).join('')}
-          </div>
-          <div class="ll-config-hint">Stops once this many posts are collected.</div>
-        </div>
-
-        <div class="ll-config-actions">
-          <button class="ll-config-cancel" id="ll-config-cancel">Cancel</button>
-          <button class="ll-config-start" id="ll-config-start">Start Scraping →</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // Tab switching
-    overlay.querySelectorAll('.ll-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        mode = tab.dataset.mode;
-        overlay.querySelectorAll('.ll-tab').forEach(t => t.classList.remove('ll-tab--active'));
-        tab.classList.add('ll-tab--active');
-        const panelNew   = document.getElementById('ll-panel-new');
-        const panelTime  = document.getElementById('ll-panel-time');
-        const panelCount = document.getElementById('ll-panel-count');
-        if (panelNew)   panelNew.style.display   = mode === 'new'   ? '' : 'none';
-        if (panelTime)  panelTime.style.display  = mode === 'time'  ? '' : 'none';
-        if (panelCount) panelCount.style.display = mode === 'count' ? '' : 'none';
-      });
-    });
-
-    // Time chips
-    overlay.querySelectorAll('#ll-panel-time .ll-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        overlay.querySelectorAll('#ll-panel-time .ll-chip').forEach(b => b.classList.remove('ll-chip--active'));
-        btn.classList.add('ll-chip--active');
-        selectedMonths = parseInt(btn.dataset.months);
-      });
-    });
-
-    // Count chips
-    overlay.querySelectorAll('#ll-panel-count .ll-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        overlay.querySelectorAll('#ll-panel-count .ll-chip').forEach(b => b.classList.remove('ll-chip--active'));
-        btn.classList.add('ll-chip--active');
-        selectedCount = parseInt(btn.dataset.count);
-      });
-    });
-
-    document.getElementById('ll-config-cancel').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-    document.getElementById('ll-config-start').addEventListener('click', () => {
-      overlay.remove();
-      if (mode === 'new') {
-        // Incremental: only fetch posts newer than the last scrape
-        onStart({ cutoffDate: lastScraped, maxPosts: 0 });
-      } else if (mode === 'time') {
-        const cutoffDate = selectedMonths > 0
-          ? new Date(Date.now() - selectedMonths * 30 * 24 * 3600 * 1000)
-          : null;
-        onStart({ cutoffDate, maxPosts: 0 });
-      } else {
-        onStart({ cutoffDate: null, maxPosts: selectedCount });
       }
     });
   }
@@ -404,19 +595,16 @@
   }
 
   // ─── Scroll-based scraping (on activity page) ─────────────────────────
-  function startScrollScraping(profileData, config) {
+  function startScrollScraping(profileData, config, silent = false) {
     const { cutoffDate, maxPosts } = config || {};
-    // cutoffDate: Date|null — skip/stop on older posts
-    // maxPosts: number — 0 means no limit
 
     let collectedPosts = [];
     let scrollCount = 0;
-    const MAX_SCROLLS = 60; // generous ceiling; early-stop handles the real limit
+    const MAX_SCROLLS = 200;
 
-    showScrapeBanner(profileData.name, cutoffDate, maxPosts);
+    if (!silent) showScrapeBanner(profileData.name, cutoffDate, maxPosts);
+    else showSilentRefreshBar(profileData.name);
 
-    // Collect all currently visible posts and dedup into collectedPosts.
-    // Returns true if we should stop early (hit cutoff or post limit).
     function collectNow() {
       const newPosts = extractPosts();
       let hitCutoff = false;
@@ -424,18 +612,14 @@
       for (const post of newPosts) {
         if (collectedPosts.find(p => p.postUrl === post.postUrl)) continue;
 
-        // Content-based dedup: LinkedIn sometimes surfaces the same post under two
-        // different activity IDs (e.g. reshares, feed re-surfacing). If we already
-        // have a post with the same first 150 chars from this session, skip it.
         if (post.content && post.content.length > 80) {
           const snippet = post.content.substring(0, 150);
           if (collectedPosts.some(p => p.content && p.content.substring(0, 150) === snippet)) continue;
         }
 
-        // Time-range cutoff: posts are in reverse-chron order; first old post = done
         if (cutoffDate && post.postedAt && new Date(post.postedAt) < cutoffDate) {
           hitCutoff = true;
-          continue; // still collect newer posts in same batch
+          continue;
         }
 
         collectedPosts.push(post);
@@ -446,19 +630,16 @@
       safeStorageSet({
         ll_scrape_status: { count: collectedPosts.length, scrolls: scrollCount, profile: profileData.name }
       });
-      updateScrapeBanner(collectedPosts.length, scrollCount, MAX_SCROLLS);
+      if (!silent) updateScrapeBanner(collectedPosts.length, scrollCount, MAX_SCROLLS);
+      else updateSilentRefreshBar(collectedPosts.length);
       const btn = document.getElementById('ll-btn');
-      if (btn) btn.querySelector('.ll-label').textContent = `Scraping… (${collectedPosts.length} posts)`;
+      if (btn) btn.querySelector('.ll-label').textContent = `Scraping… (${collectedPosts.length})`;
 
       return hitCutoff || limitHit;
     }
 
-    // Collect initial posts already on screen
     collectNow();
 
-    // MutationObserver catches posts loaded by infinite scroll.
-    // MUST be debounced — without this, updating the banner DOM triggers
-    // the observer again, causing an infinite loop that freezes the tab.
     let observerDebounce = null;
     observer = new MutationObserver(() => {
       if (observerDebounce) clearTimeout(observerDebounce);
@@ -468,7 +649,6 @@
         if (done) stopRequested = true;
       }, 600);
     });
-    // Observe only the feed container — not all of body — to reduce noise
     const feedRoot =
       document.querySelector('.scaffold-layout__main') ||
       document.querySelector('[class*="scaffold-layout__main"]') ||
@@ -479,84 +659,62 @@
 
     stopRequested = false;
 
-    // LinkedIn uses IntersectionObserver internally to trigger infinite scroll.
-    // The trick: scroll the LAST visible post into view so the feed's sentinel
-    // element enters the viewport and fires the load. Also fire scroll events
-    // on multiple containers as a fallback for older LinkedIn builds.
     function doScroll() {
-      // Step 1: scroll the last visible post into view (most reliable trigger)
-      const POST_SELS = [
-        '.feed-shared-update-v2',
-        '[data-urn*="activity"]',
-        '.occludable-update',
-        'li.profile-creator-shared-feed-update__container',
-        '.profile-creator-shared-feed-update__container',
-      ];
-      let lastPost = null;
-      for (const sel of POST_SELS) {
-        const els = document.querySelectorAll(sel);
-        if (els.length > 0) {
-          console.log(`[LL] doScroll: found ${els.length} containers via "${sel}"`);
-          lastPost = els[els.length - 1]; break;
-        }
-      }
-      if (!lastPost) console.warn('[LL] doScroll: no post containers found!');
-      if (lastPost) {
-        lastPost.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }
-
-      // Step 2: also push window + any inner container to the bottom
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      const scrollAmt = Math.round(window.innerHeight * (0.7 + Math.random() * 0.4));
+      window.scrollBy({ top: scrollAmt, behavior: 'smooth' });
       const mainEl =
         document.querySelector('.scaffold-layout__main') ||
         document.querySelector('[class*="scaffold-layout__main"]') ||
         document.querySelector('.scaffold-layout__content-container');
       if (mainEl && mainEl.scrollHeight > mainEl.clientHeight + 50) {
-        mainEl.scrollTo({ top: mainEl.scrollHeight, behavior: 'smooth' });
+        mainEl.scrollBy({ top: scrollAmt, behavior: 'smooth' });
       }
-
-      // Step 3: fire a single window scroll event for listener-based loaders
-      setTimeout(() => window.dispatchEvent(new Event('scroll')), 400);
+      setTimeout(() => window.dispatchEvent(new Event('scroll')), 350 + Math.random() * 250);
     }
 
-    // Schedule next scroll with a human-like random delay.
-    // NOTE: No isExtensionAlive() guard here — the scroll is pure DOM work and
-    // doesn't need Chrome APIs. The guard was killing the loop silently.
     function scheduleNextScroll(isFirst) {
-      const base  = isFirst ? 1500 + Math.random() * 1500   // 1.5–3s for first
-                            : 5000 + Math.random() * 4000;  // 5–9s after that
-      const extra = !isFirst && Math.random() < 0.15 ? 2000 + Math.random() * 2000 : 0;
-      const delay = base + extra;
+      let base;
+      if (isFirst) {
+        base = 1500 + Math.random() * 1500;
+      } else {
+        const r = Math.random();
+        if (r < 0.12) {
+          base = 15000 + Math.random() * 10000;
+        } else if (r < 0.25) {
+          base = 2500 + Math.random() * 1500;
+        } else {
+          base = 5000 + Math.random() * 5000;
+        }
+      }
 
-      console.log(`[LL] next scroll in ${Math.round(delay/1000)}s (scroll #${scrollCount+1}, posts: ${collectedPosts.length})`);
+      console.log(`[LL] next scroll in ${Math.round(base/1000)}s (scroll #${scrollCount+1}, posts: ${collectedPosts.length})`);
 
       scrollIntervalRef = setTimeout(() => {
         if (scrollCount >= MAX_SCROLLS || stopRequested) {
           scrollIntervalRef = null;
           console.log('[LL] finalizing —', collectedPosts.length, 'posts, scrolls:', scrollCount);
-          finalizeScrape(collectedPosts, profileData);
+          finalizeScrape(collectedPosts, profileData, silent);
           return;
         }
 
         doScroll();
         scrollCount++;
         console.log(`[LL] scroll #${scrollCount} done, body height: ${document.body.scrollHeight}`);
-        updateScrapeBanner(collectedPosts.length, scrollCount, MAX_SCROLLS);
+        if (!silent) updateScrapeBanner(collectedPosts.length, scrollCount, MAX_SCROLLS);
 
-        // Scan at 1.5s, 3s, 5s after scroll — catches both fast and slow loaders
         setTimeout(() => { const done = collectNow(); if (done) stopRequested = true; }, 1500);
         setTimeout(() => { const done = collectNow(); if (done) stopRequested = true; }, 3000);
         setTimeout(() => { const done = collectNow(); if (done) stopRequested = true; }, 5000);
 
         scheduleNextScroll(false);
-      }, delay);
+      }, base);
     }
 
     console.log('[LL] startScrollScraping started, initial posts:', collectedPosts.length);
     scheduleNextScroll(true);
   }
 
-  function finalizeScrape(posts, profileData) {
+  function finalizeScrape(posts, profileData, isSilent = false) {
     if (observer) { observer.disconnect(); observer = null; }
 
     safeStorageGet(['ll_post_queue'], (data) => {
@@ -577,50 +735,29 @@
         ll_post_queue: queue,
         ll_scrape_status: { count: posts.length, scrolls: 30, profile: profileData.name, done: true }
       }, () => {
-        removeScrapeBanner();
-        showToast(`Collected ${posts.length} posts from ${profileData.name}! Syncing to dashboard…`, 'success');
+        if (isSilent) removeSilentRefreshBar(); else removeScrapeBanner();
+        if (isSilent) {
+          if (posts.length > 0) showToast(`Refreshed: +${posts.length} new posts from ${profileData.name}!`, 'success');
+        } else {
+          showToast(`Collected ${posts.length} posts from ${profileData.name}! Syncing…`, 'success');
+        }
         safeSendMessage({ type: 'SYNC_NOW' });
-        safeSendMessage({ type: 'SCRAPE_DONE', name: profileData.name, count: posts.length });
+        if (!isSilent || posts.length > 0) {
+          safeSendMessage({ type: 'SCRAPE_DONE', name: profileData.name, count: posts.length });
+        }
         isTracking = false;
         stopRequested = false;
         const btn = document.getElementById('ll-btn');
-        if (btn) { btn.disabled = false; btn.querySelector('.ll-label').textContent = `Done ✓ (${posts.length} posts)`; }
+        if (btn) {
+          btn.disabled = false;
+          btn.querySelector('.ll-label').textContent = isSilent
+            ? (posts.length > 0 ? `Done ✓ (+${posts.length})` : 'Scrape Posts')
+            : `Done ✓ (${posts.length} posts)`;
+        }
         const stopBtn = document.getElementById('ll-stop-btn');
         if (stopBtn) stopBtn.style.display = 'none';
       });
     });
-  }
-
-  // ─── Persistent scrape banner ─────────────────────────────────────────
-  function showScrapeBanner(name, cutoffDate, maxPosts) {
-    removeScrapeBanner();
-    const rangeLabel = cutoffDate
-      ? `last ${Math.round((Date.now() - cutoffDate.getTime()) / (30 * 24 * 3600 * 1000))} months`
-      : 'all time';
-    const limitLabel = maxPosts > 0 ? ` · up to ${maxPosts} posts` : '';
-    const banner = document.createElement('div');
-    banner.id = 'll-scrape-banner';
-    banner.innerHTML = `
-      <div class="ll-banner-icon">🔍</div>
-      <div class="ll-banner-body">
-        <div class="ll-banner-title">Postifo is scraping <strong>${name}</strong> &nbsp;·&nbsp; <span style="color:#FFBE0B;font-weight:400">${rangeLabel}${limitLabel}</span></div>
-        <div class="ll-banner-sub" id="ll-banner-sub">Starting… you can switch tabs freely</div>
-      </div>
-      <div class="ll-banner-pulse"></div>
-    `;
-    document.body.appendChild(banner);
-  }
-
-  function updateScrapeBanner(count, scrolls, maxScrolls) {
-    const sub = document.getElementById('ll-banner-sub');
-    if (!sub) return;
-    const pct = Math.min(Math.round((scrolls / maxScrolls) * 100), 95);
-    sub.innerHTML = `<strong>${count}</strong> posts collected &nbsp;·&nbsp; ${pct}% done &nbsp;·&nbsp; <span style="color:#FFBE0B">Don't close this tab</span>`;
-  }
-
-  function removeScrapeBanner() {
-    const b = document.getElementById('ll-scrape-banner');
-    if (b) b.remove();
   }
 
   // ─── Toast ────────────────────────────────────────────────────────────
@@ -636,18 +773,95 @@
     setTimeout(() => { toast.classList.remove('ll-toast--visible'); setTimeout(() => toast.remove(), 400); }, 5000);
   }
 
+  // ─── Silent refresh bar (auto-refresh indicator) ───────────────────
+  function showSilentRefreshBar(name) {
+    if (document.getElementById('ll-refresh-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'll-refresh-bar';
+    bar.style.cssText = [
+      'position:fixed','bottom:24px','left:50%','transform:translateX(-50%)',
+      'z-index:100002','background:#1a1a1a','border:1px solid rgba(255,107,53,0.3)',
+      'color:#A3A3A3','font-size:12px','font-weight:500','padding:10px 14px',
+      'border-radius:10px','box-shadow:0 4px 20px rgba(0,0,0,0.4)',
+      'font-family:-apple-system,sans-serif','display:flex','align-items:center','gap:8px',
+      'max-width:300px',
+    ].join(';');
+    bar.innerHTML = `
+      <div style="width:7px;height:7px;border-radius:50%;background:#FF6B35;flex-shrink:0"></div>
+      <span id="ll-refresh-bar-text">Postifo refreshing <strong style="color:#F5F5F5">${name}</strong>…</span>
+      <button id="ll-refresh-bar-close" style="margin-left:auto;background:none;border:none;color:#555;cursor:pointer;font-size:13px;padding:0 0 0 6px;line-height:1">✕</button>
+    `;
+    document.body.appendChild(bar);
+    document.getElementById('ll-refresh-bar-close').addEventListener('click', () => bar.remove());
+  }
+
+  function updateSilentRefreshBar(count) {
+    const el = document.getElementById('ll-refresh-bar-text');
+    if (el) el.innerHTML = `Postifo refreshing… <strong style="color:#F5F5F5">${count} new</strong>`;
+  }
+
+  function removeSilentRefreshBar() {
+    const el = document.getElementById('ll-refresh-bar');
+    if (el) el.remove();
+  }
+
+  // ─── Silent auto-refresh ───────────────────────────────────────────
+  function checkAutoRefresh() {
+    if (!isActivityPage() || isTracking) return;
+    const profileUrl = getProfileUrlFromCurrent();
+    if (!profileUrl) return;
+
+    safeStorageGet(['ll_auth'], (data) => {
+      const token = data.ll_auth?.token;
+      if (!token) return;
+
+      fetch(`${API_BASE}/api/creators/scrape-info?linkedinUrl=${encodeURIComponent(profileUrl)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .then(info => {
+          if (!info?.lastScrapedAt) return;
+          const staleDays = (Date.now() - new Date(info.lastScrapedAt).getTime()) / 86400000;
+          if (staleDays < 7) return;
+          if (isTracking) return;
+
+          const profileData = getProfileData();
+          if (!profileData.linkedinUrl) return;
+          if (!profileData.name) profileData.name = profileData.linkedinId || 'creator';
+
+          safeStorageGet(['ll_pending_creators'], (d) => {
+            const pending = d.ll_pending_creators || [];
+            if (!pending.find(c => c.linkedinUrl === profileData.linkedinUrl)) {
+              pending.push({ ...profileData, queuedAt: Date.now() });
+              safeStorageSet({ ll_pending_creators: pending });
+            }
+
+            isTracking = true;
+            const btn = document.getElementById('ll-btn');
+            if (btn) { btn.disabled = true; btn.querySelector('.ll-label').textContent = 'Refreshing…'; }
+            const stopBtn = document.getElementById('ll-stop-btn');
+            if (stopBtn) stopBtn.style.display = 'flex';
+
+            startScrollScraping(profileData, { cutoffDate: new Date(info.lastScrapedAt), maxPosts: 0 }, true);
+          });
+        });
+    });
+  }
+
   // ─── URL change watcher (LinkedIn is a SPA) ───────────────────────────
   let lastUrl = location.href;
   new MutationObserver(() => {
-    if (!isExtensionAlive()) return; // stop if extension was reloaded
+    if (!isExtensionAlive()) return;
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      removeTrackButton();
+      removeSidePanel();
       setTimeout(() => {
         if (!isExtensionAlive()) return;
         if (isProfilePage() || isActivityPage()) {
-          injectTrackButton();
+          injectSidePanel();
           checkAutoPendingScrape();
+          setTimeout(() => { if (!isExtensionAlive()) return; checkAutoRefresh(); }, 1000);
         }
       }, 2000);
     }
@@ -657,9 +871,10 @@
   if (isProfilePage() || isActivityPage()) {
     setTimeout(() => {
       if (!isExtensionAlive()) return;
-      injectTrackButton();
+      injectSidePanel();
       checkAutoPendingScrape();
-    }, 3000); // 3s gives LinkedIn's SPA time to finish rendering
+      setTimeout(() => { if (!isExtensionAlive()) return; checkAutoRefresh(); }, 1000);
+    }, 3000);
   }
 
 })();

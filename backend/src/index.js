@@ -12,6 +12,7 @@ const libraryRoutes   = require('./routes/library');
 const savedPostRoutes = require('./routes/savedPosts');
 const exportRoutes    = require('./routes/export');
 const syncRoutes      = require('./routes/sync');
+const statsRoutes     = require('./routes/stats');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -62,6 +63,7 @@ app.use('/api/library',     libraryRoutes);
 app.use('/api/saved-posts', savedPostRoutes);
 app.use('/api/export',      exportRoutes);
 app.use('/api/sync',        syncRoutes);
+app.use('/api/stats',       statsRoutes);
 
 // ─── Error handler ───────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {

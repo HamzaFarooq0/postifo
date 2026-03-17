@@ -9,12 +9,6 @@ router.get('/:creatorId', authenticate, async (req, res, next) => {
   try {
     const { creatorId } = req.params;
 
-    // Verify user tracks this creator
-    const tracked = await prisma.userTrackedCreator.findUnique({
-      where: { userId_creatorId: { userId: req.userId, creatorId } },
-    });
-    if (!tracked) return res.status(403).json({ error: 'Not tracking this creator' });
-
     const posts = await prisma.post.findMany({
       where: { creatorId },
       orderBy: { postedAt: 'asc' },
@@ -92,18 +86,30 @@ router.get('/:creatorId', authenticate, async (req, res, next) => {
         posts:     w.count,
       }));
 
-    // Hook analysis — first sentence from top-performing posts
+    // Hook = all content visible before LinkedIn's "see more" click (~3 lines / ~220 chars)
+    // LinkedIn truncates at first blank line OR ~220 chars — whichever comes first
     const topPosts = [...posts]
       .filter(p => p.content && p.content.trim().length > 20)
       .sort((a, b) => b.reactions - a.reactions)
       .slice(0, 10);
 
-    const hookAnalysis = topPosts.map(p => ({
-      hook:      p.content.split(/\n|\.{1}(?!\d)/)[0].trim().slice(0, 200),
-      reactions: p.reactions,
-      postType:  p.postType,
-      postUrl:   p.postUrl,
-    }));
+    const hookAnalysis = topPosts.map(p => {
+      const c = p.content.trim();
+      const dblBreak = c.indexOf('\n\n');
+      let end = dblBreak > 0 && dblBreak <= 260 ? dblBreak : Math.min(c.length, 220);
+      if (end < c.length && c[end] !== ' ' && c[end] !== '\n') {
+        const lastSpace = c.lastIndexOf(' ', end);
+        if (lastSpace > end - 40) end = lastSpace;
+      }
+      return {
+        hook:      c.substring(0, end).trim(),
+        reactions: p.reactions,
+        comments:  p.comments,
+        postType:  p.postType,
+        postUrl:   p.postUrl,
+        postedAt:  p.postedAt,
+      };
+    });
 
     res.json({
       totalPosts,
